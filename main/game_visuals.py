@@ -195,7 +195,6 @@ class VisualHexMap:
                 if event.button == 1:# Left mouse
                     mouse_pos = np.array([np.array(pos) - self.center])
                     axial_clicked = hx.pixel_to_axial(mouse_pos, self.hex_radius).astype(np.int)
-            
                     try:
                         axial_player = self.board.__getitem__(axial_clicked)[0].get_piece().get_player()
                         if (np.array_equal(self.valid_moves, None)) and axial_player == self.board.player:

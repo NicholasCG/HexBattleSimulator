@@ -1,10 +1,8 @@
 import numpy as np
 import hexy as hx
-from random import seed, randint
-from datetime import datetime
 from piece import Piece, PieceTemplate, EmptyTemplate
-from queue import Queue
 import yaml
+from os import path
 
 def generate_fixed_board():
     axial_coords = hx.cube_to_axial(hx.get_disk([0, 0, 0], 13))
@@ -42,34 +40,61 @@ class GameBoard(hx.HexMap):
     moves they have, and attack other players' pieces.
     '''
     def __init__ (self):
-        seed(datetime.now())
 
         self.player = 1
         self.templates = [EmptyTemplate]
         self.moved_pieces =[]
 
-        with open('settings/settings.yaml') as file:
-            test_list = yaml.safe_load(file)
-            for piece, info in test_list['pieces'].items():
-                self.templates.append(PieceTemplate(info['health'], 
-                                                    info['distance'], 
-                                                    info['attack']))
-        self.axial_coords, self.game_hexes = generate_fixed_board()
+        if (not path.exists('settings/default_settings.yaml')):
+            print("This program cannot run if default_settings.yaml is missing.")
+            raise SystemExit
+        try:
+            file = open('settings/settings.yaml')
+        except FileNotFoundError:
+            print("settings.yaml is missing, using default_settings.yaml...")
+            try:
+                file = open('settings/default_settings.yaml')
+            except:
+                print("This program cannot run if default_settings.yaml is missing.")
+                raise SystemExit
 
-        rands = []
-        gh_len = len(self.game_hexes)
-        tem_len = len(self.templates) - 1
-        for i in range(tem_len * 2):
-            val = randint(0, gh_len - 1)
-            while val in rands:
-                val = randint(0, gh_len - 1)
-            rands.append(val)
+        test_list = yaml.safe_load(file)
 
-        for i in range(2):
-            for p in range(tem_len):
-                self.game_hexes[rands[tem_len * i + p]].set_piece(piece = p + 1, 
-                                                                player = i + 1, 
-                                                                piece_template = self.templates[p + 1])
+        # Create piece templates
+        for piece, info in test_list['pieces'].items():
+            self.templates.append(PieceTemplate(info['health'], 
+                                                info['distance'], 
+                                                info['attack']))
+
+        # Import board from settings
+        self.axial_coords = np.array([np.array(i) for i in test_list['board']])
+
+        self.game_hexes = []
+
+        for a in self.axial_coords:
+            self.game_hexes.append(GameHex(a))
+
+        self.game_hexes = np.array(self.game_hexes)
+
+        # Set player 1 pieces on the board.
+        for piece, piece_info in test_list['player1'].items():
+            index = 0
+            for a in self.axial_coords:
+                if np.array_equal(piece_info[1], a):
+                    self.game_hexes[index].set_piece(piece = piece_info[0],
+                                                    player = 1,
+                                                    piece_template = self.templates[piece_info[0]])
+                index += 1
+
+        # Set player 2 pieces on the board.
+        for piece, piece_info in test_list['player2'].items():
+            index = 0
+            for a in self.axial_coords:
+                if np.array_equal(piece_info[1], a):
+                    self.game_hexes[index].set_piece(piece = piece_info[0],
+                                                    player = 2,
+                                                    piece_template = self.templates[piece_info[0]])
+                index += 1
 
         hx.HexMap.__setitem__(self, self.axial_coords, self.game_hexes)
 
