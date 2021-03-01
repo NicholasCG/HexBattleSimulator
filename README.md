@@ -30,8 +30,13 @@ map = hex_game.get_board()    # Pulls the new game state.
 - `GameBoard()`: Creates a new game, based on the settings from settings.yaml/default_settings.yaml.
 - `get_board()`: Returns the current state of the game board.
 - `get_valid_moves(hexagon)`: Gives the possible moves for the piece that is current at a tile.
-- `move_piece(old_coords, new_coords)`: Moves a piece at `old_coords` to `new_coords, or attacks the piece at `new_coords`, depending on if the move is valid.
+- `move_piece(old_coords, new_coords)`: Moves a piece at `old_coords` to `new_coords`, or attacks the piece at `new_coords`, depending on if the move is valid.
 - `end_turn()`: Ends the current turn, resets record of moved pieces, and changes to the next player's turn.
+
+### Warning!
+Do not alter default_settings.yaml, unless you are sure that the file is still in a valid format.
+If settings.yaml is invalid or missing, the program defaults to default_settings.yaml, and will
+not run if it is missing or invalid.
 
 ## License
 
