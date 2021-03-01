@@ -1,0 +1,50 @@
+import hexy as hx
+from hexy.hexy import get_cube_distance
+
+class PieceTemplate(hx.HexTile):
+    def __init__(self, health, distance, attack):
+        self.health = health
+        self.distance = distance
+        self.attack = attack
+
+EmptyTemplate = PieceTemplate(0, 0, 0)
+
+class Piece:
+    EMPTY = 0
+    INFANTRY = 1
+    DEFENSE = 2
+    SPEED = 3 
+
+    def __init__ (self, coordinates, p_type, player, template = EmptyTemplate):
+        self.coordinates = coordinates
+        self.p_type = p_type
+        self.player = player
+        self.max_health = template.health
+        self.health = template.health
+        self.distance = template.distance
+        self.attack = template.attack
+        self.template = template
+
+    def get_piece_coords(self):
+        return self.coordinates
+
+    def get_piece_type(self):
+        return self.p_type
+
+    def get_player(self):
+        return self.player
+
+    def set_coords(self, new_coords):
+        self.coordinates = new_coords
+
+    def get_current_health(self):
+        return self.health
+
+    def get_distance(self):
+        return self.distance
+
+    def get_attack(self):
+        return self.attack
+
+    def get_template(self):
+        return self.template

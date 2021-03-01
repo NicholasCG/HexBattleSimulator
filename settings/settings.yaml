@@ -1,0 +1,35 @@
+---
+# template for pieces
+pieces:
+  #infantry
+  1:
+    health: 30
+    distance: 5
+    attack: 6
+  #defense
+  2:
+    health: 40
+    distance: 3
+    attack: 4
+  #speed
+  3:
+    health: 25
+    distance: 6
+    attack: 3
+# what hexes exist on the board
+board:
+  - [0, 0]
+  - [1, 1]
+  - [2, 2]
+  - [3, 3]
+# player 1 pieces to spawn
+player1:
+  1:
+    - 1
+    - [0, 0]
+# player 2 pieces to spawn
+player2:
+  1:
+    - 2
+    - [2, 2]
+...
