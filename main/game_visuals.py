@@ -2,8 +2,6 @@
 # which seemed to default to ALSA, which was causing an underrun error.
 import os
 
-from pygame import mouse
-
 os.environ['SDL_AUDIODRIVER'] = 'dsp'
 
 import hexy as hx
@@ -73,6 +71,10 @@ def make_hex_surface(color, radius, border_color=(100, 100, 100), border=True, h
     return surface
 
 class Button():
+    '''
+    Basic Button class for visual interface.
+    Code from Tech With Tim. https://www.youtube.com/c/TechWithTim
+    '''
     def __init__(self, color, x,y,width,height, text=''):
         self.color = color
         self.x = x
@@ -103,6 +105,10 @@ class Button():
         return False
 
 class VisualHex(hx.HexTile):
+    '''
+    Class for holding information about hexagon tiles
+    drawn to the screen.
+    '''
     def __init__ (self, axial_coordinates, color, radius):
         self.axial_coordinates = np.array([axial_coordinates])
         self.position = hx.axial_to_pixel(self.axial_coordinates, radius)
@@ -129,6 +135,11 @@ class VisualHex(hx.HexTile):
         return self.axial_coordinates
 
 class VisualHexMap:
+    '''
+    Class for creating a new GameBoard and drawing
+    visuals to the screen. Displays the board, pieces,
+    health, and moves for each player's pieces.
+    '''
     def __init__(self, size = (1000, 1000), hex_radius = 20, caption = "Simplex Hex Map"):
 
         self.size = np.array(size)
@@ -138,7 +149,7 @@ class VisualHexMap:
         self.hex_radius = hex_radius
         self.caption = caption
 
-        self.board = hxgame.GameBoard(hex_radius = self.hex_radius)
+        self.board = hxgame.GameBoard()
         self.game_map = self.board.get_board()
 
         self.hex_map = hx.HexMap()

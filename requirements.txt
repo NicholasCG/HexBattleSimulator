@@ -1,0 +1,3 @@
+pygame==2.0.0.dev6
+numpy==1.19.2
+hexy==1.4.3

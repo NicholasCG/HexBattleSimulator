@@ -2,6 +2,11 @@ import hexy as hx
 from hexy.hexy import get_cube_distance
 
 class PieceTemplate(hx.HexTile):
+    '''
+    Interntal class to hold basic information
+    about piece types. Generated when importing
+    from settings file.
+    '''
     def __init__(self, health, distance, attack):
         self.health = health
         self.distance = distance
@@ -15,6 +20,11 @@ class Piece:
     DEFENSE = 2
     SPEED = 3 
 
+    '''
+    Holds information about a piece on the board.
+    Stores coordinates, piece type, owner, and 
+    the PlayerTemplate it is based on.
+    '''
     def __init__ (self, coordinates, p_type, player, template = EmptyTemplate):
         self.coordinates = coordinates
         self.p_type = p_type

@@ -16,7 +16,11 @@ def generate_fixed_board():
     return axial_coords, np.array(game_hexes)
 
 class GameHex(hx.HexTile):
-
+    '''
+    Class that holds information about a hexagon
+    at specific axial coordinates. Holds information
+    on its coordinates and what piece is on the tile.
+    '''
     def __init__ (self, axial_coordinates, piece = 0, player = 0, piece_template = EmptyTemplate):
         self.axial_coordinates = axial_coordinates
         self.piece = Piece(axial_coordinates, piece, player, piece_template)
@@ -31,7 +35,13 @@ class GameHex(hx.HexTile):
         self.piece = Piece(self.axial_coordinates, piece, player, piece_template)
 
 class GameBoard(hx.HexMap):
-    def __init__ (self, hex_radius = 20):
+    '''
+    Main game class. Stores the entire game board,
+    and allows for players to move their pieces to
+    other areas of the board, see what available
+    moves they have, and attack other players' pieces.
+    '''
+    def __init__ (self):
         seed(datetime.now())
 
         self.player = 1
