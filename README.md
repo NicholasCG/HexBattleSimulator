@@ -3,6 +3,8 @@
 This is a basic hexagon-based strategy game meant to
 roughly simulate large-scale combat for analysis purposes.
 
+If there are any issues with the program, please let me know at [mailto](mailto:nicholascgray@knights.ucf.edu).
+
 #### Installation instruction for required packages
 
 ```bash
@@ -31,7 +33,7 @@ map = hex_game.get_board()    # Pulls the new game state.
 - `get_board()`: Returns the current state of the game board.
 - `get_valid_moves(hexagon)`: Gives the possible moves for the piece that is current at a tile.
 - `move_piece(old_coords, new_coords)`: Moves a piece at `old_coords` to `new_coords`, or attacks the piece at `new_coords`, depending on if the move is valid.
-- `end_turn()`: Ends the current turn, resets record of moved pieces, and changes to the next player's turn.
+- `end_turn()`: Ends the current turn, resets record of moved pieces, and changes to the next player's turn. If all of a player's pieces are removed from the board, the function returns the winning opponent's number.
 
 ### Warning!
 Do not alter default_settings.yaml, unless you are sure that the file is still in a valid format.
