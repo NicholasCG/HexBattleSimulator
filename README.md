@@ -3,7 +3,7 @@
 This is a basic hexagon-based strategy game meant to
 roughly simulate large-scale combat for analysis purposes.
 
-If there are any issues with the program, please let me know at [mailto](mailto:nicholascgray@knights.ucf.edu).
+If there are any issues with the program, please let me know at [nicholascgray@knights.ucf.edu](mailto:nicholascgray@knights.ucf.edu).
 
 #### Installation instruction for required packages
 
