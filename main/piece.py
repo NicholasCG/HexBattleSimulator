@@ -1,5 +1,4 @@
 import hexy as hx
-from hexy.hexy import get_cube_distance
 
 class PieceTemplate(hx.HexTile):
     '''

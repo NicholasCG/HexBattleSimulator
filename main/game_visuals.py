@@ -148,9 +148,9 @@ class VisualHexMap:
         self.center = (self.size / 2).astype(np.int)
         self.hex_radius = hex_radius
         self.caption = caption
-
         self.board = hxgame.GameBoard()
         self.game_map = self.board.get_board()
+        self.win_state = 0
 
         self.hex_map = hx.HexMap()
         hexes = [VisualHex(coords.get_axial_coords(), 
@@ -217,7 +217,7 @@ class VisualHexMap:
                             self.valid_moves = None
 
                 if self.turn_button.isOver(pos):
-                    self.board.end_turn()
+                    self.win_state = self.board.end_turn()
 
             if event.type == pg.MOUSEMOTION:
                 if self.turn_button.isOver(pos):
@@ -227,6 +227,10 @@ class VisualHexMap:
                         
 
             if event.type == pg.QUIT or (event.type == pg.KEYDOWN and event.key == pg.K_ESCAPE):
+                running = False
+
+            if self.win_state != 0:
+                print("Player", self.win_state, "has won!")
                 running = False
 
         return running

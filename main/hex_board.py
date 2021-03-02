@@ -2,6 +2,7 @@ import numpy as np
 import hexy as hx
 from piece import Piece, PieceTemplate, EmptyTemplate
 import yaml
+from queue import Queue
 from os import path
 
 def generate_fixed_board():
@@ -44,21 +45,24 @@ class GameBoard(hx.HexMap):
         self.player = 1
         self.templates = [EmptyTemplate]
         self.moved_pieces =[]
+        self.player1_pieces = 0
+        self.player2_pieces = 0
 
         if (not path.exists('settings/default_settings.yaml')):
             print("This program cannot run if default_settings.yaml is missing.")
             raise SystemExit
+
         try:
             file = open('settings/settings.yaml')
-        except FileNotFoundError:
-            print("settings.yaml is missing, using default_settings.yaml...")
+            test_list = yaml.safe_load(file)
+        except:
+            print("settings.yaml is missing or is in an invalid format, using default_settings.yaml...")
             try:
                 file = open('settings/default_settings.yaml')
+                test_list = yaml.safe_load(file)
             except:
-                print("This program cannot run if default_settings.yaml is missing.")
+                print("This program cannot run if default_settings.yaml is missing or is in an invalid format.")
                 raise SystemExit
-
-        test_list = yaml.safe_load(file)
 
         # Create piece templates
         for piece, info in test_list['pieces'].items():
@@ -79,6 +83,7 @@ class GameBoard(hx.HexMap):
         # Set player 1 pieces on the board.
         for piece, piece_info in test_list['player1'].items():
             index = 0
+            self.player1_pieces += 1
             for a in self.axial_coords:
                 if np.array_equal(piece_info[1], a):
                     self.game_hexes[index].set_piece(piece = piece_info[0],
@@ -89,6 +94,7 @@ class GameBoard(hx.HexMap):
         # Set player 2 pieces on the board.
         for piece, piece_info in test_list['player2'].items():
             index = 0
+            self.player2_pieces += 1
             for a in self.axial_coords:
                 if np.array_equal(piece_info[1], a):
                     self.game_hexes[index].set_piece(piece = piece_info[0],
@@ -151,10 +157,19 @@ class GameBoard(hx.HexMap):
             
         # Create new game hexes at the coordinates, delete the old GameHexes
         # at the coordinates, and replace with the new coordinates.
+        # BUG: health is being reset.
+
+        if old_piece_check.get_piece().player == 1:
+            self.player1_pieces -= 1
+        elif old_piece_check.get_piece().player == 2:
+            self.player2_pieces -= 1
+
         piece = GameHex(new_coords, piece = old_piece.get_piece().get_piece_type(), 
                                     player = old_piece.get_piece().get_player(),
                                     piece_template = old_piece.get_piece().get_template())
         empty = GameHex(old_coords)
+
+        piece.get_piece().health = old_piece.get_piece().health
 
         coords = np.array([old_coords, new_coords])
         pieces = np.array([empty, piece])
@@ -165,7 +180,7 @@ class GameBoard(hx.HexMap):
         self.moved_pieces.append(new_coords)
 
     def get_valid_moves(self, hex):
-
+        #move = self.new_get_valid_moves(hex)
         # Get the maximum radius for movement and 
         # attack power for closest attack
         radius = hex.get_piece().get_distance()
@@ -173,7 +188,6 @@ class GameBoard(hx.HexMap):
         center = hx.axial_to_cube(np.array([hex.get_axial_coords()]))
 
         move = np.array([[hex.get_axial_coords(), 0]], dtype=object)
-
         # Create array of possible moves and the matching attack power.
         # The farther out the move is from the center, the weaker the attack.
         for i in range(0, radius):
@@ -188,6 +202,52 @@ class GameBoard(hx.HexMap):
 
         return move
 
+    # NOT WORKING, DO NOT USE.
+    # Note: This is not factoring in direction yet.
+    # I am still figuring out how to implement that.
+    def new_get_valid_moves(self, hex):
+        center = hex.get_axial_coords()
+        print(hex.piece.distance)
+        print(center)
+        cube_center = hx.axial_to_cube(np.array([center]))
+        moves = np.array([[center, 0]], dtype = object)
+        
+        frontier = Queue()
+        frontier.put(center)
+
+        while not frontier.empty():
+            current =  np.frombuffer(frontier.get(), dtype=center.dtype)
+            cube_current = hx.axial_to_cube(np.array([current]))
+            neighbors = np.array([hx.get_neighbor(cube_current, hx.NW),
+                                hx.get_neighbor(cube_current, hx.NE),
+                                hx.get_neighbor(cube_current, hx.SE),
+                                hx.get_neighbor(cube_current, hx.SW),
+                                hx.get_neighbor(cube_current, hx.E),
+                                hx.get_neighbor(cube_current, hx.W)
+                                ])
+            for next_nb in neighbors:
+                axial_nb = hx.cube_to_axial(next_nb)
+                print(cube_center, next_nb)
+                distance = hx.get_cube_distance(cube_center, next_nb)
+                print(distance)
+                if distance > hex.piece.distance:
+                    continue
+
+                found = False
+                for i in range(len(moves)):
+                    #print("b", axial_nb[0], moves[i][0])
+                    if np.array_equal(axial_nb[0], moves[i][0]):
+                        found = True
+                        break
+                if found:
+                    continue
+
+                frontier.put(next_nb)
+                new_move = np.array([axial_nb[0], hex.piece.attack - distance + 1], dtype = object)
+                moves = np.vstack([moves, new_move])
+
+        print(moves)
+        return moves
     def end_turn(self):
         self.moved_pieces = []
 
@@ -195,4 +255,11 @@ class GameBoard(hx.HexMap):
             self.player = 2
         elif self.player == 2:
             self.player = 1
+
+        if self.player1_pieces == 0:
+            return 2
+        elif self.player2_pieces == 0:
+            return 1
+        else:
+            return 0
         
