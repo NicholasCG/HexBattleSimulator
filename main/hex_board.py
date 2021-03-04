@@ -183,8 +183,8 @@ class GameBoard(hx.HexMap):
         #move = self.new_get_valid_moves(hex)
         # Get the maximum radius for movement and 
         # attack power for closest attack
-        radius = hex.get_piece().get_distance()
-        attack = hex.get_piece().get_attack()
+        radius = hex.piece.get_distance()
+        attack = hex.piece.get_attack()
         center = hx.axial_to_cube(np.array([hex.get_axial_coords()]))
 
         move = np.array([[hex.get_axial_coords(), 0]], dtype=object)
