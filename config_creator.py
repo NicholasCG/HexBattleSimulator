@@ -1,8 +1,6 @@
 # This is needed becuase pygame's init() calls for an audio driver,
 # which seemed to default to ALSA, which was causing an underrun error.
 import os
-import ctypes
-from hexy.hexy import axial_to_cube
 
 os.environ['SDL_AUDIODRIVER'] = 'dsp'
 
