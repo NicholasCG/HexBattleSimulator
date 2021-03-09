@@ -265,8 +265,6 @@ class VisualHexMap:
             w = piece.get_piece().get_piece_type()
             if w != 0:
                 # Draw piece
-                pixel_pos = hx.axial_to_pixel(np.array(piece.get_axial_coords()), self.hex_radius)
-                draw_pos = (pixel_pos + self.center).astype(np.int)
                 text = self.font.render(str(w), False, COLORS[piece.get_piece().get_player()], (0, 0, 0))
                 text.set_alpha(160)
                 pos = hx.axial_to_pixel(piece.get_axial_coords(), self.hex_radius)

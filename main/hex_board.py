@@ -5,14 +5,29 @@ import yaml
 from queue import Queue
 from os import path
 
-def generate_fixed_board():
-    axial_coords = hx.cube_to_axial(hx.get_disk([0, 0, 0], 13))
-    game_hexes = []
-
-    for a in axial_coords:
-        game_hexes.append(GameHex(a))
-
-    return axial_coords, np.array(game_hexes)
+def v2_angle(vector1, vector2):
+    '''
+    Finds the angle between two direction vectors, and then
+    returns the 'depth cost' of the angle between the two vectors.
+    The function assumes the vectors being worked with
+    are the directional vectors defined in the hexy library.
+    :param vector1: first direction vector.
+    :param vector2: second direction vector.
+    '''
+    val = (np.dot(vector1, vector2)) / 2
+    
+    if val == 1.0:
+        return 0
+    elif val == 0.5:
+        return 1
+    elif val == -0.5:
+        return 2
+    elif val == -1.0:
+        return 3
+    else:
+        print("something's wrong")
+        print(vector1, vector2)
+        return int(0.954929658551372 * np.arccos(val))
 
 class GameHex(hx.HexTile):
     '''
