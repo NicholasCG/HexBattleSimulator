@@ -1,8 +1,6 @@
 # This is needed becuase pygame's init() calls for an audio driver,
 # which seemed to default to ALSA, which was causing an underrun error.
 import os
-import ctypes
-from hexy.hexy import axial_to_cube
 
 os.environ['SDL_AUDIODRIVER'] = 'dsp'
 
@@ -10,6 +8,7 @@ import yaml
 import numpy as np
 import hexy as hx
 import pygame as pg
+from tkinter import Tk
 
 COL_IDX = np.random.randint(0, 4, (7 ** 3))
 COLORS = np.array([
@@ -209,7 +208,12 @@ class ExampleHex(hx.HexTile):
         return self.position[0]
 
 class ExampleHexMap:
-    def __init__(self, num_pieces, size=(1000, 1000), hex_radius=20, caption="Config File Creator"):
+    def __init__(self, num_pieces, hex_radius=20, caption="Config File Creator"):
+
+        root = Tk()
+        size = (root.winfo_screenheight(), root.winfo_screenheight())
+        root.destroy()
+        
         self.caption = caption              # Controls window caption
         self.size = np.array(size)          # Controls window size
         self.width, self.height = self.size # Width and height of window
@@ -217,9 +221,9 @@ class ExampleHexMap:
 
         self.num_pieces = num_pieces
 
-        self.hex_radius = hex_radius        # Radius of individual hexagons
+        self.hex_radius = int(hex_radius * self.size[0] / 1000)      # Radius of individual hexagons
 
-        self.max_coord = 13                 # Controls the radius of the hex map in hexagon shape.
+        self.max_coord = ClampedInteger(13, 1, 13) # Controls the radius of the hex map in hexagon shape.
 
         self.selection = ClampedInteger(1, 0, 4)  # Clamps the radius to a default of 3, with a min of 1 and max of 5. This
                                             # is related to the ring and disk functions.
@@ -228,19 +232,21 @@ class ExampleHexMap:
         self.player_selection = CyclicInteger(1, 1, 2)
 
         self.old_selection = self.selection.value
+        self.old_max = self.max_coord.value
+
         self.clicked_hex = np.array([0, 0, 0])      # Center hex
 
-        self.hex_map = Selection.get_selection(self.selection.value, self.max_coord, self.hex_radius)
+        self.hex_map = Selection.get_selection(self.selection.value, self.max_coord.value, self.hex_radius)
 
         self.b_map = hx.HexMap()
         b_hexes = []
         b_axial_coordinates = []
-        for r in range(-self.max_coord, self.max_coord + 1):
+        for r in range(-self.max_coord.value, self.max_coord.value + 1):
             r_offset = r >> 1
-            for q in range(-self.max_coord - r_offset, self.max_coord - r_offset):
+            for q in range(-self.max_coord.value - r_offset, self.max_coord.value - r_offset):
                 c = [q, r]
                 b_axial_coordinates.append(c)
-                b_hexes.append(ExampleHex(c, [141, 207, 250, 255], hex_radius, hollow = True))
+                b_hexes.append(ExampleHex(c, [141, 207, 250, 255], self.hex_radius, hollow = False))
 
         self.b_map[np.array(b_axial_coordinates)] = b_hexes
 
@@ -271,7 +277,7 @@ class ExampleHexMap:
                 if event.button == 1:# Left mouse
                     self.clicked_hex = hx.pixel_to_axial(
                             np.array([pg.mouse.get_pos() - self.center]), 
-                            self.hex_radius)[0].astype(np.int)
+                            self.hex_radius)[0].astype(np.int32)
                     
                     if self.step == 2:
 
@@ -302,12 +308,12 @@ class ExampleHexMap:
                     if event.button == 5: #scroll down
                         self.piece_selection.decrement()
 
-            # if event.type == pg.KEYUP:
-            #     if self.step == 2:
-            #         if event.key == pg.K_RIGHT:
-            #             self.player_selection.increment()
-            #         elif event.key == pg.K_LEFT:
-            #             self.player_selection.decrement()
+            if event.type == pg.KEYUP:
+                if self.step == 1:
+                    if event.key == pg.K_RIGHT:
+                        self.max_coord.increment()
+                    elif event.key == pg.K_LEFT:
+                        self.max_coord.decrement()
 
             if event.type == pg.KEYDOWN:
                 if event.key == pg.K_RETURN:
@@ -332,9 +338,10 @@ class ExampleHexMap:
                 self.main_surf.blit(b_hexagons[index].image, (b_hex_positions[index] + self.center).astype(int)) #Draws the hexagons on
                     #hexagons[index].image uses an image created in example_hex from make_hex_surface
                 
-            if self.selection.value != self.old_selection:
-                self.hex_map = Selection.get_selection(self.selection.value, self.max_coord, self.hex_radius)
+            if self.selection.value != self.old_selection or self.max_coord.value != self.old_max:
+                self.hex_map = Selection.get_selection(self.selection.value, self.max_coord.value, self.hex_radius)
                 self.old_selection = self.selection.value
+                self.old_max = self.max_coord.value
 
             # show all hexes
             hexagons = list(self.hex_map.values())
@@ -375,7 +382,7 @@ class ExampleHexMap:
                 pos = hx.axial_to_pixel(piece1[1], self.hex_radius)
                 text_pos = pos + self.center
                 text_pos -= (text.get_width() / 2, text.get_height() / 2)
-                self.main_surf.blit(text, text_pos.astype(np.int))
+                self.main_surf.blit(text, text_pos.astype(np.int32))
 
             for piece2 in self.player_list[2]:
                 text = self.font.render(str(piece2[0]), False, COLORS[2], (0, 0, 0))
@@ -383,7 +390,7 @@ class ExampleHexMap:
                 pos = hx.axial_to_pixel(piece2[1], self.hex_radius)
                 text_pos = pos + self.center
                 text_pos -= (text.get_width() / 2, text.get_height() / 2)
-                self.main_surf.blit(text, text_pos.astype(np.int))
+                self.main_surf.blit(text, text_pos.astype(np.int32))
 
             self.main_surf.blit(player_text, (5, 20))
             self.main_surf.blit(piece_selection_text, (5, 40))
@@ -401,7 +408,7 @@ class ExampleHexMap:
         hexagons = list(self.hex_map.values())
 
         #print(list(hexagons[0].axial_coordinates[0]))
-        board['board'] = [hex.axial_coordinates[0].astype(np.int).tolist() for hex in hexagons]
+        board['board'] = [hex.axial_coordinates[0].astype(np.int32).tolist() for hex in hexagons]
 
         onepieces['player1'] = {i + 1: [self.player_list[1][i][0], self.player_list[1][i][1].tolist()] 
                                 for i in range(0, len(self.player_list[1]))}
@@ -415,8 +422,11 @@ if __name__ == '__main__':
     print("\n\nInstructions for use:\n")
     print("Step 1: Piece templates. Input the number of piece templates to be created, ")
     print("and give the maximum health, attack power, and moving distance for each template.\n")
+    
     print("Step 2: Create the board. A window should pop up that allows you to create a board from")
-    print("a select number of types. A custom board mode is in development.\n")
+    print("a select number of types. Use the left and right arrow keys to change the size of the map.")
+    print("A custom board mode is in development.\n")
+
     print("Step 3: Place pieces on the board. The window will stay open, but will now not allow you")
     print("to change the board. Use the scroll wheel to cycle through piece templates, and use the")
     print("right mouse to alternate between players 1 and 2.\n")
@@ -439,6 +449,9 @@ if __name__ == '__main__':
     #print(pieces_list)
     settings['pieces'] = pieces_list
         
+    if not os.path.exists('settings/settings.yaml'):
+        os.mkdir('settings/')
+        
     file = open(r'settings/settings.yaml', 'w')
     file.write("---\n")
     docs = yaml.dump(settings, file, sort_keys=False)
@@ -455,3 +468,5 @@ if __name__ == '__main__':
     file.write("...")
 
     file.close()
+    input("Press enter to close...")
+    raise SystemExit
