@@ -422,7 +422,7 @@ if __name__ == '__main__':
     print("\n\nInstructions for use:\n")
     print("Step 1: Piece templates. Input the number of piece templates to be created, ")
     print("and give the maximum health, attack power, and moving distance for each template.\n")
-    
+
     print("Step 2: Create the board. A window should pop up that allows you to create a board from")
     print("a select number of types. Use the left and right arrow keys to change the size of the map.")
     print("A custom board mode is in development.\n")
