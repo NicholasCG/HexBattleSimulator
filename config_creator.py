@@ -449,10 +449,7 @@ if __name__ == '__main__':
     #print(pieces_list)
     settings['pieces'] = pieces_list
         
-    if not os.path.exists('settings/settings.yaml'):
-        os.mkdir('settings/')
-        
-    file = open(r'settings/settings.yaml', 'w')
+    file = open(r'settings/settings.yaml', 'w+')
     file.write("---\n")
     docs = yaml.dump(settings, file, sort_keys=False)
 
