@@ -7,6 +7,7 @@ os.environ['SDL_AUDIODRIVER'] = 'dsp'
 import hexy as hx
 import numpy as np
 import pygame as pg
+from tkinter import Tk
 
 import hex_board as hxgame
 
@@ -140,13 +141,17 @@ class VisualHexMap:
     visuals to the screen. Displays the board, pieces,
     health, and moves for each player's pieces.
     '''
-    def __init__(self, size = (1000, 1000), hex_radius = 20, caption = "Simplex Hex Map"):
+    def __init__(self, hex_radius = 20, caption = "Simplex Hex Map"):
+
+        root = Tk()
+        size = (root.winfo_screenheight(), root.winfo_screenheight())
+        root.destroy()
 
         self.size = np.array(size)
         self.width, self.height = self.size
         #self.center = (0 + hex_radius, 0 + hex_radius)
         self.center = (self.size / 2).astype(np.int)
-        self.hex_radius = hex_radius
+        self.hex_radius = int(hex_radius * self.size[0] / 1000)      # Radius of individual hexagons
         self.caption = caption
         self.board = hxgame.GameBoard()
         self.game_map = self.board.get_board()
@@ -155,7 +160,7 @@ class VisualHexMap:
         self.hex_map = hx.HexMap()
         hexes = [VisualHex(coords.get_axial_coords(), 
                             COLORS[0], 
-                            hex_radius) for coords in self.game_map]
+                            self.hex_radius) for coords in self.game_map]
         
         self.hex_map[np.array([c.get_axial_coords() for c in self.game_map])] = hexes
 
@@ -168,7 +173,7 @@ class VisualHexMap:
         self.clicked_hex = None
         self.valid_moves = None
 
-        self.turn_button = Button((0, 255, 0), 375, 920, 250, 75, 'End Turn')
+        self.turn_button = Button((0, 255, 0), 810, 20, 250, 75, 'End Turn')
 
         self.main_surf = None
         self.font = None
@@ -258,7 +263,33 @@ class VisualHexMap:
             axial_moves = np.array([i[0] for i in axial_moves])
             visual_moves = self.hex_map[axial_moves]
             self.valid_moves = axial_moves
+
             list(map(self.draw_selected, visual_moves))
+
+            valid = self.board[axial_moves[0]][0]
+            mh = valid.piece.max_health
+            ch = valid.piece.health
+
+            # Draw health bar for selected piece
+            pixel_pos = hx.axial_to_pixel(np.array(valid.get_axial_coords()), self.hex_radius)
+            corner = (pixel_pos + self.center).astype(np.int) + (-mh / 2, -20)
+            rect_pos = np.array([corner[0], corner[1], mh, 8]).astype(np.int)
+            pg.draw.rect(self.main_surf, HCOLORS[0], rect_pos)
+            ch_rect_pos = np.array([corner[0], corner[1], ch, 8]).astype(np.int)
+            pg.draw.rect(self.main_surf, HCOLORS[1], ch_rect_pos)
+                    
+            # Draw health bars of enemy pieces when in range
+            for valid in self.board[axial_moves]:
+                if valid.piece.p_type != 0 and valid.piece.player != self.board.player:
+                    mh = valid.piece.max_health
+                    ch = valid.piece.health
+
+                    pixel_pos = hx.axial_to_pixel(np.array(valid.get_axial_coords()), self.hex_radius)
+                    corner = (pixel_pos + self.center).astype(np.int) + (-mh / 2, -20)
+                    rect_pos = np.array([corner[0], corner[1], mh, 8]).astype(np.int)
+                    pg.draw.rect(self.main_surf, HCOLORS[0], rect_pos)
+                    ch_rect_pos = np.array([corner[0], corner[1], ch, 8]).astype(np.int)
+                    pg.draw.rect(self.main_surf, HCOLORS[1], ch_rect_pos)
 
         # Draw pieces and health bars
         for piece in self.game_map:
@@ -272,17 +303,6 @@ class VisualHexMap:
                 text_pos -= (text.get_width() / 2, text.get_height() / 2)
                 self.main_surf.blit(text, text_pos.astype(np.int))
 
-                # Draw health bar
-                mh = piece.get_piece().max_health
-                ch = piece.get_piece().health
-
-                pixel_pos = hx.axial_to_pixel(np.array(piece.get_axial_coords()), self.hex_radius)
-                corner = (pixel_pos + self.center).astype(np.int) + (-mh / 2, -20)
-                rect_pos = np.array([corner[0], corner[1], mh, 8]).astype(np.int)
-                pg.draw.rect(self.main_surf, HCOLORS[0], rect_pos)
-                ch_rect_pos = np.array([corner[0], corner[1], ch, 8]).astype(np.int)
-                pg.draw.rect(self.main_surf, HCOLORS[1], ch_rect_pos)
-
         # Display current FPS
         fps_text = self.fps_font.render(" FPS: " + str(int(self.clock.get_fps())), True, (50, 50, 50))
         player_text = self.player_font.render(" Player " + str(self.board.player) + " turn", True, COLORS[self.board.player])
@@ -290,7 +310,7 @@ class VisualHexMap:
         
         # Display current player's turn
         player_width = self.player_font.size(" Player " + str(self.board.player) + " turn")[0]
-        self.main_surf.blit(player_text, (int(500 - player_width / 2), 20))
+        self.main_surf.blit(player_text, (int(self.center[0] - player_width / 2), 20))
         self.turn_button.draw(self.main_surf, (0, 0, 0))
         
         # Update window and keep background  
