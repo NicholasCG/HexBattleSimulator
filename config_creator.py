@@ -284,9 +284,17 @@ class ExampleHexMap:
                         if not np.array_equal(self.hex_map[self.clicked_hex], []):
                             index = 0
                             repeat = False
-                            for piece in self.player_list[self.player_selection.value]:
+                            for piece in self.player_list[1]:
                                 if np.array_equal(piece[1], self.clicked_hex):
-                                    del self.player_list[self.player_selection.value][index]
+                                    del self.player_list[1][index]
+                                    repeat = True
+                                else:
+                                    index += 1
+
+                            index = 0
+                            for piece in self.player_list[2]:
+                                if np.array_equal(piece[1], self.clicked_hex):
+                                    del self.player_list[2][index]
                                     repeat = True
                                 else:
                                     index += 1

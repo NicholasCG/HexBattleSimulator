@@ -24,36 +24,14 @@ class Piece:
     Stores coordinates, piece type, owner, and 
     the PlayerTemplate it is based on.
     '''
-    def __init__ (self, coordinates, p_type, player, template = EmptyTemplate):
-        self.coordinates = coordinates
+    def __init__ (self, p_type, player, direction, template = EmptyTemplate):
         self.p_type = p_type
         self.player = player
         self.max_health = template.health
         self.health = template.health
         self.distance = template.distance
         self.attack = template.attack
+        self.direction = direction
         self.template = template
 
-    def get_piece_coords(self):
-        return self.coordinates
-
-    def get_piece_type(self):
-        return self.p_type
-
-    def get_player(self):
-        return self.player
-
-    def set_coords(self, new_coords):
-        self.coordinates = new_coords
-
-    def get_current_health(self):
-        return self.health
-
-    def get_distance(self):
-        return self.distance
-
-    def get_attack(self):
-        return self.attack
-
-    def get_template(self):
-        return self.template
+EmptyPiece = Piece(0, 0, "", EmptyTemplate)

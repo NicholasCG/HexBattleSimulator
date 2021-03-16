@@ -1,6 +1,6 @@
 import numpy as np
 import hexy as hx
-from piece import Piece, PieceTemplate, EmptyTemplate
+from piece import Piece, PieceTemplate, EmptyTemplate, EmptyPiece
 import yaml
 from queue import Queue
 from os import path
@@ -37,7 +37,7 @@ class GameHex(hx.HexTile):
     '''
     def __init__ (self, axial_coordinates, piece = 0, player = 0, piece_template = EmptyTemplate):
         self.axial_coordinates = axial_coordinates
-        self.piece = Piece(axial_coordinates, piece, player, piece_template)
+        self.piece = Piece(piece, player, piece_template)
 
     def get_axial_coords(self):
         return self.axial_coordinates
@@ -46,7 +46,7 @@ class GameHex(hx.HexTile):
         return self.piece
 
     def set_piece(self, piece, player, piece_template):
-        self.piece = Piece(self.axial_coordinates, piece, player, piece_template)
+        self.piece = Piece(piece, player, piece_template)
 
 class GameBoard(hx.HexMap):
     '''
@@ -101,10 +101,14 @@ class GameBoard(hx.HexMap):
             self.player1_pieces += 1
             for a in self.axial_coords:
                 if np.array_equal(piece_info[1], a):
-                    self.game_hexes[index].set_piece(piece = piece_info[0],
+                    self.game_hexes[index].piece = Piece(p_type = piece_info[0],
                                                     player = 1,
-                                                    piece_template = self.templates[piece_info[0]])
+                                                    direction = piece_info[2],
+                                                    template = self.templates[piece_info[0]])
                 index += 1
+
+            b = eval("hx." + piece_info[2])
+            print(b)
 
         # Set player 2 pieces on the board.
         for piece, piece_info in test_list['player2'].items():
@@ -112,9 +116,10 @@ class GameBoard(hx.HexMap):
             self.player2_pieces += 1
             for a in self.axial_coords:
                 if np.array_equal(piece_info[1], a):
-                    self.game_hexes[index].set_piece(piece = piece_info[0],
+                    self.game_hexes[index].piece = Piece(p_type = piece_info[0],
                                                     player = 2,
-                                                    piece_template = self.templates[piece_info[0]])
+                                                    direction = piece_info[2],
+                                                    template = self.templates[piece_info[0]])
                 index += 1
 
         hx.HexMap.__setitem__(self, self.axial_coords, self.game_hexes)
@@ -131,15 +136,15 @@ class GameBoard(hx.HexMap):
             return
         
         # Get the old piece, and create a new piece with 
-        old_piece = hx.HexMap.__getitem__(self, old_coords)[0]
-        old_piece_check = hx.HexMap.__getitem__(self, new_coords)[0]
+        old_piece = self[old_coords][0]
+        old_piece_check = self[new_coords][0]
 
         # Check if the piece to be moved is owned by the current player
-        if old_piece.get_piece().get_player() != self.player:
+        if old_piece.piece.player != self.player:
             return
 
         # Check if the piece's new location is owned by the same player
-        if old_piece.get_piece().get_player() == old_piece_check.get_piece().get_player():
+        if old_piece.piece.player == old_piece_check.piece.player:
             return
 
         valid_moves = self.get_valid_moves(old_piece)
@@ -153,7 +158,7 @@ class GameBoard(hx.HexMap):
         # because we already checked if the piece at new_coords,
         # is owned by the same player. If the piece at new_coords is
         # not empty as well, then it has to be the enemy's.
-        if old_piece_check.get_piece().get_player() != 0:
+        if old_piece_check.piece.player != 0:
             index = 0
             for move in valid_moves_axials:
                 if np.array_equal(move, new_coords):
@@ -163,34 +168,21 @@ class GameBoard(hx.HexMap):
             # Subtract health from the enemy piece. If the health is still
             # above 0, don't move the piece.
             damage = valid_moves[index][1]
-            old_piece_check.get_piece().health -= damage
-            if old_piece_check.get_piece().health > 0:
-                hx.HexMap.__delitem__(self, new_coords)
-                hx.HexMap.__setitem__(self, [new_coords], [old_piece_check])
+            old_piece_check.piece.health -= damage
+            if old_piece_check.piece.health > 0:
                 self.moved_pieces.append(old_coords)
                 return
             
-        # Create new game hexes at the coordinates, delete the old GameHexes
-        # at the coordinates, and replace with the new coordinates.
-        # BUG: health is being reset.
+        # Place the piece at the old coordinates to the new coordinates, and
+        # change the piece at the old coordinates to the empty piece.
 
-        if old_piece_check.get_piece().player == 1:
+        if old_piece_check.piece.player == 1:
             self.player1_pieces -= 1
-        elif old_piece_check.get_piece().player == 2:
+        elif old_piece_check.piece.player == 2:
             self.player2_pieces -= 1
 
-        piece = GameHex(new_coords, piece = old_piece.get_piece().get_piece_type(), 
-                                    player = old_piece.get_piece().get_player(),
-                                    piece_template = old_piece.get_piece().get_template())
-        empty = GameHex(old_coords)
-
-        piece.get_piece().health = old_piece.get_piece().health
-
-        coords = np.array([old_coords, new_coords])
-        pieces = np.array([empty, piece])
-
-        hx.HexMap.__delitem__(self, coords)
-        hx.HexMap.__setitem__(self, coords, pieces)
+        self[new_coords][0].piece = self[old_coords][0].piece
+        self[old_coords][0].piece = EmptyPiece
 
         self.moved_pieces.append(new_coords)
 
@@ -198,8 +190,8 @@ class GameBoard(hx.HexMap):
         #move = self.new_get_valid_moves(hex)
         # Get the maximum radius for movement and 
         # attack power for closest attack
-        radius = hex.piece.get_distance()
-        attack = hex.piece.get_attack()
+        radius = hex.piece.distance
+        attack = hex.piece.attack
         center = hx.axial_to_cube(np.array([hex.get_axial_coords()]))
 
         move = np.array([[hex.get_axial_coords(), 0]], dtype=object)
