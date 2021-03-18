@@ -1,5 +1,11 @@
+# Ignore local testing files
 Other_Files/
 hexagonTiles/
+
+# Ignore local testing setting files except the default settings.
+settings/*.yaml
+!settings/default_settings.yaml
+
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

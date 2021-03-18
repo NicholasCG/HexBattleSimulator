@@ -7,7 +7,8 @@ os.environ['SDL_AUDIODRIVER'] = 'dsp'
 import hexy as hx
 import numpy as np
 import pygame as pg
-from tkinter import Tk
+import tkinter.filedialog
+import tkinter as tk
 
 import hex_board as hxgame
 
@@ -27,8 +28,10 @@ HCOLORS = np.array([
 ])
 
 DIRECTIONS = np.array(["SE", "SW", "W", "NW", "NE", "E"])
+TESTING = False
 
-root = Tk()
+root = tk.Tk()
+root.withdraw()
 size = (root.winfo_screenheight(), root.winfo_screenheight())
 root.destroy()
 scale = size[0] / 1000
@@ -196,6 +199,7 @@ class VisualHexMap:
 
         self.clicked_hex = None
         self.valid_moves = None
+        self.axial_moves = None
 
         self.select_direction = CyclicInteger(0, 0, 5)
         self.turn_button = Button((0, 255, 0), int(750 * scale), 
@@ -219,6 +223,8 @@ class VisualHexMap:
         self.font = pg.font.SysFont("monospace", self.hex_radius, True)
         self.fps_font = pg.font.SysFont("monospace", int(20 * scale), True)
         self.player_font = pg.font.SysFont('arial', int(40 * scale), True)
+        if TESTING:
+            self.test_font = pg.font.SysFont("monospace", 10, True)
         self.clock = pg.time.Clock()
 
     def handle_events(self):
@@ -233,6 +239,8 @@ class VisualHexMap:
                         axial_player = self.board.__getitem__(axial_clicked)[0].piece.player
                         if (np.array_equal(self.valid_moves, None)) and axial_player == self.board.player:
                             self.clicked_hex = axial_clicked
+                            self.axial_moves = self.board.get_valid_moves(self.board[self.clicked_hex][0])
+                            self.axial_moves = np.array([[i[0], i[1]] for i in self.axial_moves])
                     except IndexError:
                         pass
 
@@ -248,6 +256,7 @@ class VisualHexMap:
 
                         finally:
                             self.clicked_hex = None
+                            self.axial_moves = None
                             self.valid_moves = None
 
                 if event.button == 4: #Scroll up
@@ -288,7 +297,11 @@ class VisualHexMap:
         # Draw game hexagons
         for index in sorted_indexes:
             self.main_surf.blit(hexagons[index].image, (hex_positions[index] + self.center).astype(np.int))
-
+            if TESTING:
+                v_coords = hexagons[index].get_axial_coords()[0]
+                c_text = self.test_font.render(str(v_coords[0]) +"," + str(v_coords[1]), True, (255, 255, 255))
+                c_width = self.test_font.size(str(v_coords[0]) +"," + str(v_coords[1]))[0]
+                self.main_surf.blit(c_text, (hexagons[index].get_position() + self.center - c_width / 2).astype(np.int))
         # Draw pieces
         for piece in self.game_map:
             w = piece.piece.p_type
@@ -322,10 +335,8 @@ class VisualHexMap:
             pg.draw.polygon(self.main_surf, COLORS[-2], coords + self.center, 0)
 
             # Get the valid moves for a piece, and display them.
-            axial_moves = self.board.get_valid_moves(self.board[self.clicked_hex][0])
-            axial_moves = np.array([i[0] for i in axial_moves])
-            visual_moves = self.hex_map[axial_moves]
-            self.valid_moves = axial_moves
+            visual_moves = self.hex_map[self.axial_moves]
+            self.valid_moves = self.axial_moves
 
             list(map(self.draw_selected, visual_moves))
 
@@ -366,6 +377,11 @@ class VisualHexMap:
         raise SystemExit
 
 if __name__ == '__main__':
+
+    # root = tk.Tk()
+    # root.withdraw()
+    # dirname = tk.filedialog.askopenfilename(initialdir = "settings/", title = "Select config file")
+    # print(dirname)
     visual_hex_map = VisualHexMap()
 
     while visual_hex_map.main_loop():
