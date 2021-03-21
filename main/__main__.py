@@ -10,7 +10,7 @@ import pygame as pg
 import tkinter.filedialog
 import tkinter as tk
 
-import hex_board as hxgame
+import game_board as hxgame
 
 COLORS = np.array([
     #[141, 207, 104],  # green
@@ -28,7 +28,7 @@ HCOLORS = np.array([
 ])
 
 DIRECTIONS = np.array(["SE", "SW", "W", "NW", "NE", "E"])
-TESTING = False
+TESTING = 0
 
 root = tk.Tk()
 root.withdraw()
@@ -172,7 +172,7 @@ class VisualHexMap:
     visuals to the screen. Displays the board, pieces,
     health, and moves for each player's pieces.
     '''
-    def __init__(self, hex_radius = 20, caption = "Hex Battle Simulator"):
+    def __init__(self, dirname, hex_radius = 20, caption = "Hex Battle Simulator"):
 
         self.size = np.array(size)
         self.width, self.height = self.size
@@ -180,16 +180,18 @@ class VisualHexMap:
         self.center = (self.size / 2).astype(np.int)
         self.hex_radius = int(hex_radius * scale)      # Radius of individual hexagons
         self.caption = caption
-        self.board = hxgame.GameBoard()
-        self.game_map = self.board.get_board()
+        self.board = hxgame.GameBoard(dirname)
+        
         self.win_state = 0
-
         self.hex_map = hx.HexMap()
+
+        temp_map_list = np.array([*self.board.values()])
+
         hexes = [VisualHex(coords.get_axial_coords(), 
                             COLORS[0], 
-                            self.hex_radius) for coords in self.game_map]
+                            self.hex_radius) for coords in temp_map_list]
         
-        self.hex_map[np.array([c.get_axial_coords() for c in self.game_map])] = hexes
+        self.hex_map[np.array([c.get_axial_coords() for c in temp_map_list])] = hexes
 
         self.selected_hex_image = make_hex_surface(
                 (128, 128, 128, 255),               # Highlight color for a hexagon.
@@ -249,7 +251,6 @@ class VisualHexMap:
                             if self.board.__getitem__(axial_clicked)[0] in self.board.__getitem__(self.valid_moves):
 
                                 self.board.move_piece(self.clicked_hex[0], axial_clicked[0])
-                                self.game_map = self.board.get_board()
 
                         except IndexError:
                             pass
@@ -303,7 +304,7 @@ class VisualHexMap:
                 c_width = self.test_font.size(str(v_coords[0]) +"," + str(v_coords[1]))[0]
                 self.main_surf.blit(c_text, (hexagons[index].get_position() + self.center - c_width / 2).astype(np.int))
         # Draw pieces
-        for piece in self.game_map:
+        for piece in self.board.values():
             w = piece.piece.p_type
             if w != 0:
                 # Draw piece
@@ -313,6 +314,21 @@ class VisualHexMap:
                 text_pos = pos + self.center
                 text_pos -= (text.get_width() / 2, text.get_height() / 2)
                 self.main_surf.blit(text, text_pos.astype(np.int))
+
+                            # This index is used to find the two angles for the directional triangle.
+                index = np.where(DIRECTIONS == piece.piece.direction)[0][0]
+                # Find the radian angles of the direction, and scale to the hex radius
+                angles_in_radians = np.deg2rad([60 * i + 30 for i in range(index, index + 2)])
+                x = self.hex_radius * np.cos(angles_in_radians)
+                y = self.hex_radius * np.sin(angles_in_radians)
+
+                # Merge all points to a single array of a triangle
+                points = np.round(np.vstack([x, y]).T)
+                points = np.round(np.vstack([points, [0, 0]]))
+
+                # Find pixel coordinates, and draw the triangle.
+                coords = (points.astype(np.int) + hx.axial_to_pixel(piece.get_axial_coords(), self.hex_radius)).astype(np.int32)
+                pg.draw.polygon(self.main_surf, COLORS[-2], coords + self.center, 0)
 
         # Draw valid moves if a piece is clicked
         if not np.array_equal(self.clicked_hex, None):
@@ -342,7 +358,7 @@ class VisualHexMap:
 
         # Draw health bars
         health_scale = scale * self.hex_radius / 20
-        for piece in self.game_map:
+        for piece in self.board.values():
             w = piece.piece.p_type
             if w != 0:
                 mh = piece.get_piece().max_health
@@ -378,14 +394,14 @@ class VisualHexMap:
 
 if __name__ == '__main__':
 
-    # root = tk.Tk()
-    # root.withdraw()
-    # dirname = tk.filedialog.askopenfilename(initialdir = "settings/", title = "Select config file")
-    # print(dirname)
-    visual_hex_map = VisualHexMap()
+    root = tk.Tk()
+    root.withdraw()
+    dirname = tk.filedialog.askopenfilename(initialdir = "settings/", title = "Select config file to use")
+    root.destroy()
+    visual_hex_map = VisualHexMap(dirname)
 
     while visual_hex_map.main_loop():
         visual_hex_map.draw()
 
     visual_hex_map.quit_app()
-
+    input("Press enter to close...")

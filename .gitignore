@@ -1,6 +1,7 @@
-# Ignore local testing files
-Other_Files/
-hexagonTiles/
+# Ignore local testing files except the main file.= and the settings file.
+*/
+!main/
+!settings/
 
 # Ignore local testing setting files except the default settings.
 settings/*.yaml

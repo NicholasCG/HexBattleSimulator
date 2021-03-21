@@ -8,7 +8,7 @@ import yaml
 import numpy as np
 import hexy as hx
 import pygame as pg
-from tkinter import Tk
+from tkinter import filedialog, Tk
 
 COL_IDX = np.random.randint(0, 4, (7 ** 3))
 COLORS = np.array([
@@ -381,9 +381,6 @@ class ExampleHexMap:
                     True,
                     (50, 50, 50))
 
-            # TODO: Have pieces added to the board when the player clicks, keep the pieces in a list
-            # and then dump the player list and board to the config file.
-
             for piece1 in self.player_list[1]:
                 text = self.font.render(str(piece1[0]), False, COLORS[1], (0, 0, 0))
                 text.set_alpha(160)
@@ -415,13 +412,13 @@ class ExampleHexMap:
 
         hexagons = list(self.hex_map.values())
 
-        #print(list(hexagons[0].axial_coordinates[0]))
         board['board'] = [hex.axial_coordinates[0].astype(np.int32).tolist() for hex in hexagons]
 
-        onepieces['player1'] = {i + 1: [self.player_list[1][i][0], self.player_list[1][i][1].tolist()] 
+        # TODO: Allow player to pick the direction of each piece. For now, have dummy direction.
+        onepieces['player1'] = {i + 1: [self.player_list[1][i][0], self.player_list[1][i][1].tolist(), "E"] 
                                 for i in range(0, len(self.player_list[1]))}
 
-        twopieces['player2'] = {i + 1: [self.player_list[2][i][0], self.player_list[2][i][1].tolist()] 
+        twopieces['player2'] = {i + 1: [self.player_list[2][i][0], self.player_list[2][i][1].tolist(), "E"] 
                                 for i in range(0, len(self.player_list[2]))}
         pg.quit()
         return board, onepieces, twopieces
@@ -454,12 +451,7 @@ if __name__ == '__main__':
         attack = int(input("attack power: "))
         pieces_list[i] = {'health': health, 'distance': distance, 'attack': attack}
 
-    #print(pieces_list)
     settings['pieces'] = pieces_list
-        
-    file = open(r'settings/settings.yaml', 'w+')
-    file.write("---\n")
-    docs = yaml.dump(settings, file, sort_keys=False)
 
     example_hex_map = ExampleHexMap(num_pieces)
 
@@ -467,11 +459,19 @@ if __name__ == '__main__':
         example_hex_map.draw()
 
     board, player1, player2 = example_hex_map.quit_app()
-    player1_docs = yaml.dump(player1, file, default_flow_style=None)
-    player2_docs = yaml.dump(player2, file, default_flow_style=None)
-    board_docs = yaml.dump(board, file, default_flow_style = None)
-    file.write("...")
 
-    file.close()
+    root = Tk()
+    root.withdraw()
+    f = filedialog.asksaveasfile(mode='w', initialdir = 'settings/', defaultextension=".yaml")
+    root.destroy()
+    if not f is None:
+        f.write("---\n")
+        yaml.dump(settings, f, sort_keys=False)
+        yaml.dump(player1, f, default_flow_style=None)
+        yaml.dump(player2, f, default_flow_style=None)
+        yaml.dump(board, f, default_flow_style = None)
+        f.write("...")
+        f.close()
+
     input("Press enter to close...")
     raise SystemExit

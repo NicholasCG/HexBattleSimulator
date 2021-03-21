@@ -1,6 +1,5 @@
 import numpy as np
 import hexy as hx
-from numpy.lib.shape_base import vsplit
 from piece import Piece, PieceTemplate, EmptyTemplate, EmptyPiece
 import yaml
 from queue import Queue
@@ -63,7 +62,7 @@ class GameBoard(hx.HexMap):
     other areas of the board, see what available
     moves they have, and attack other players' pieces.
     '''
-    def __init__ (self):
+    def __init__ (self, file_name):
 
         self.player = 1
         self.templates = [EmptyTemplate]
@@ -71,16 +70,18 @@ class GameBoard(hx.HexMap):
         self.player1_pieces = 0
         self.player2_pieces = 0
 
-        # TODO: Ask user for the name of the settings file they would like to use. Maybe have file explorer open?
         if (not path.exists('settings/default_settings.yaml')):
             print("This program cannot run if default_settings.yaml is missing.")
             raise SystemExit
 
         try:
-            file = open('settings/settings.yaml')
+            file = open(file_name)
             test_list = yaml.safe_load(file)
         except:
-            print("settings.yaml is missing or is in an invalid format, using default_settings.yaml...")
+            if file_name == ():
+                print("No file selected, defaulting to default_settings.yaml...")
+            else:
+                print("The selected file is in an invalid format, using default_settings.yaml...")
             try:
                 file = open('settings/default_settings.yaml')
                 test_list = yaml.safe_load(file)
@@ -129,64 +130,66 @@ class GameBoard(hx.HexMap):
                 index += 1
 
         hx.HexMap.__setitem__(self, self.axial_coords, self.game_hexes)
-    
-    def get_board(self):
-        return hx.HexMap.__getitem__(self, self.axial_coords)
 
-    # Currently stripped of usage until get_valid_moves() is completed.
     def move_piece(self, old_coords, new_coords):
 
-        # # Check to make sure the coordinates are not the same.
-        # if (np.array_equal(old_coords, new_coords) 
-        # or any(np.array_equal(cd, old_coords) for cd in self.moved_pieces) 
-        # or any(np.array_equal(cd, new_coords) for cd in self.moved_pieces)):
-        #     return
+        # Check to make sure the coordinates are not the same.
+        if (np.array_equal(old_coords, new_coords) 
+        or any(np.array_equal(cd, old_coords) for cd in self.moved_pieces) 
+        or any(np.array_equal(cd, new_coords) for cd in self.moved_pieces)):
+            return
         
-        # # Get the old piece, and create a new piece with 
-        # old_piece = self[old_coords][0]
-        # old_piece_check = self[new_coords][0]
+        # Get the old piece, and create a new piece with 
+        old_piece = self[old_coords][0]
+        original_at_new = self[new_coords][0]
 
-        # # Check if the piece to be moved is owned by the current player
-        # if old_piece.piece.player != self.player:
-        #     return
+        # Check if the piece to be moved is owned by the current player
+        if old_piece.piece.player != self.player:
+            return
 
-        # # Check if the piece's new location is owned by the same player
-        # if old_piece.piece.player == old_piece_check.piece.player:
-        #     return
+        # Check if the piece's new location is owned by the same player
+        if old_piece.piece.player == original_at_new.piece.player:
+            return
 
-        # valid_moves = self.get_valid_moves(old_piece)
-        # valid_moves_axials = np.array([i[0] for i in valid_moves])
+        valid_moves = self.get_valid_moves(old_piece)
+        valid_moves_axials = np.array([i[0:2] for i in valid_moves])
+        # Check if the new coordinate is in the range of valid moves
+        valid_selection = False
 
-        # # Check if the new coordinate is in the range of valid moves
-        # if (not new_coords in valid_moves_axials):
-        #     return
+        for move in valid_moves_axials:
+            if np.array_equal(new_coords, move):
+                valid_selection = True
 
-        # # Check if the piece is the enemy piece. This works
-        # # because we already checked if the piece at new_coords,
-        # # is owned by the same player. If the piece at new_coords is
-        # # not empty as well, then it has to be the enemy's.
-        # if old_piece_check.piece.player != 0:
-        #     index = 0
-        #     for move in valid_moves_axials:
-        #         if np.array_equal(move, new_coords):
-        #             break
-        #         index += 1
+        if not valid_selection:
+            return
 
-        #     # Subtract health from the enemy piece. If the health is still
-        #     # above 0, don't move the piece.
-        #     damage = valid_moves[index][1]
-        #     old_piece_check.piece.health -= damage
-        #     if old_piece_check.piece.health > 0:
-        #         self.moved_pieces.append(old_coords)
-        #         return
+        # Check if the piece is the enemy piece. This works
+        # because we already checked if the piece at new_coords,
+        # is owned by the same player. If the piece at new_coords is
+        # not empty as well, then it has to be the enemy's.
+        if original_at_new.piece.player != 0:
+            index = 0
+            for move in valid_moves_axials:
+                if np.array_equal(move, new_coords):
+                    break
+                index += 1
+
+            # Subtract health from the enemy piece.
+            # Damage = max attack power divided by 1 plus the natural log of the moves's distance.
+            # This is then multiplied by a random value, and then floored to preserve integer value.
+            damage = np.floor(old_piece.piece.attack / (1 + np.log(valid_moves[index][2])) * max(0, np.random.normal(1, 0.2)))
+            original_at_new.piece.health -= damage
+            if original_at_new.piece.health > 0:
+                self.moved_pieces.append(old_coords)
+                return
             
-        # # Place the piece at the old coordinates to the new coordinates, and
-        # # change the piece at the old coordinates to the empty piece.
+        # Place the piece at the old coordinates to the new coordinates, and
+        # change the piece at the old coordinates to the empty piece.
 
-        # if old_piece_check.piece.player == 1:
-        #     self.player1_pieces -= 1
-        # elif old_piece_check.piece.player == 2:
-        #     self.player2_pieces -= 1
+        if original_at_new.piece.player == 1:
+            self.player1_pieces -= 1
+        elif original_at_new.piece.player == 2:
+            self.player2_pieces -= 1
 
         self[new_coords][0].piece = self[old_coords][0].piece
         self[old_coords][0].piece = EmptyPiece
@@ -212,7 +215,8 @@ class GameBoard(hx.HexMap):
         #     print("the " + i + " neightbor of 0 0 is ", hx.cube_to_axial(hx.get_neighbor([[0, 0, 0]], eval("hx." + i))))
         while not frontier.empty():
             current = np.fromstring(frontier.get(), dtype=np.int64)
-            if current[2] + 1 > hex.piece.distance:
+            
+            if current[2] > hex.piece.distance:
                 continue
 
             cube_current = hx.axial_to_cube(np.array([current[0:2]]))
@@ -243,10 +247,11 @@ class GameBoard(hx.HexMap):
                 if found:
                     continue
                 else:
-                    new_move = np.array([next_nb[0][0], next_nb[0][2], current[2] + v2_angle(center_direction, direction_cube)])
-                    moves = np.vstack([moves, new_move])
-                    w = new_move.tostring()
-                    frontier.put(w)
+                    if current[2] + v2_angle(center_direction, direction_cube) <= hex.piece.distance:
+                        new_move = np.array([next_nb[0][0], next_nb[0][2], current[2] + v2_angle(center_direction, direction_cube)])
+                        moves = np.vstack([moves, new_move])
+                        w = new_move.tostring()
+                        frontier.put(w)
         return moves
 
     def end_turn(self):
@@ -263,4 +268,4 @@ class GameBoard(hx.HexMap):
             return 1
         else:
             return 0
-        
+            
