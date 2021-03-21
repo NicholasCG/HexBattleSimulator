@@ -23,7 +23,6 @@ hex_game = hxgame.GameBoard() # Initializes a new game board, pulling from setti
                               # or default_settings.yaml is settings.yaml is missing.
 # Various actions after analyzing map...
 hex_game.end_turn()           # Ends the current turn.
-map = hex_game.get_board()    # Pulls the new game state.
 ```
 
 #### Game Functions
