@@ -140,18 +140,18 @@ class GameBoard(hx.HexMap):
             return
         
         # Get the old piece, and create a new piece with 
-        old_piece = self[attacker][0]
-        original_at_new = self[target][0]
+        attacking_piece = self[attacker][0]
+        target_piece = self[target][0]
 
-        # Check if the piece to be moved is owned by the current player
-        if old_piece.piece.player != self.player:
+        # Check if the piece to attack is owned by the current player
+        if attacking_piece.piece.player != self.player:
             return
 
-        # Check if the piece's new location is owned by the same player
-        if old_piece.piece.player == original_at_new.piece.player:
+        # Check if the piece's target is owned by the opponent
+        elif attacking_piece.piece.player == target_piece.piece.player or target_piece.piece.player == 0:
             return
 
-        valid_moves = self.get_valid_attacks(old_piece)
+        valid_moves = self.get_valid_attacks(attacking_piece)
         valid_moves_axials = np.array([i[0:2] for i in valid_moves])
         # Check if the new coordinate is in the range of valid moves
         valid_selection = False
@@ -167,7 +167,7 @@ class GameBoard(hx.HexMap):
         # because we already checked if the piece at target,
         # is owned by the same player. If the piece at target is
         # not empty as well, then it has to be the enemy's.
-        if original_at_new.piece.player != 0:
+        if target_piece.piece.player != 0:
             index = 0
             for move in valid_moves_axials:
                 if np.array_equal(move, target):
@@ -177,18 +177,18 @@ class GameBoard(hx.HexMap):
             # Subtract health from the enemy piece.
             # Damage = max attack power divided by 1 plus the natural log of the moves's distance.
             # This is then multiplied by a random value, and then floored to preserve integer value.
-            damage = np.floor(old_piece.piece.attack / (1 + np.log(valid_moves[index][2])) * max(0, np.random.normal(1, 0.2)))
-            original_at_new.piece.health -= damage
-            if original_at_new.piece.health > 0:
+            damage = np.floor(attacking_piece.piece.attack / (1 + np.log(valid_moves[index][2])) * max(0, np.random.normal(1, 0.2)))
+            target_piece.piece.health -= int(damage)
+            if target_piece.piece.health > 0:
                 self.fired_pieces.append(attacker)
                 return
             
         # Place the piece at the old coordinates to the new coordinates, and
         # change the piece at the old coordinates to the empty piece.
 
-        if original_at_new.piece.player == 1:
+        if target_piece.piece.player == 1:
             self.player1_pieces -= 1
-        elif original_at_new.piece.player == 2:
+        elif target_piece.piece.player == 2:
             self.player2_pieces -= 1
 
         self[target][0].piece = EmptyPiece
