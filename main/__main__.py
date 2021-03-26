@@ -1,6 +1,5 @@
 # This is needed becuase pygame's init() calls for an audio driver,
 # which seemed to default to ALSA, which was causing an underrun error.
-from ast import NodeTransformer
 import os
 
 os.environ['SDL_AUDIODRIVER'] = 'dsp'
