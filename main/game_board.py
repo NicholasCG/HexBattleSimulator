@@ -21,16 +21,16 @@ def v2_angle(vector1, vector2):
     :param vector1: first direction vector.
     :param vector2: second direction vector.
     '''
-    val = (np.dot(vector1, vector2)) / 2
+    val = (vector1[0] * vector2[0] + vector1[1] * vector2[1] + vector1[2] * vector2[2]) / 2
 
     if val == 1.0:
-        return 1
+        return 0
     elif val == 0.5:
-        return 2
+        return 1
     elif val == -0.5:
-        return 3
+        return 2
     elif val == -1.0:
-        return 4
+        return 3
     else:
         print("something's wrong")
         print(vector1, vector2)
@@ -66,7 +66,8 @@ class GameBoard(hx.HexMap):
 
         self.player = 1
         self.templates = [EmptyTemplate]
-        self.moved_pieces =[]
+        self.moved_pieces = []
+        self.fired_pieces = []
         self.player1_pieces = 0
         self.player2_pieces = 0
 
@@ -129,19 +130,18 @@ class GameBoard(hx.HexMap):
                                                     template = self.templates[piece_info[0]])
                 index += 1
 
-        hx.HexMap.__setitem__(self, self.axial_coords, self.game_hexes)
+        self[self.axial_coords] = self.game_hexes
 
-    def move_piece(self, old_coords, new_coords):
-
+    def attack_piece(self, attacker, target):
         # Check to make sure the coordinates are not the same.
-        if (np.array_equal(old_coords, new_coords) 
-        or any(np.array_equal(cd, old_coords) for cd in self.moved_pieces) 
-        or any(np.array_equal(cd, new_coords) for cd in self.moved_pieces)):
+        if (np.array_equal(attacker, target) 
+        or any(np.array_equal(cd, attacker) for cd in self.fired_pieces) 
+        or any(np.array_equal(cd, target) for cd in self.fired_pieces)):
             return
         
         # Get the old piece, and create a new piece with 
-        old_piece = self[old_coords][0]
-        original_at_new = self[new_coords][0]
+        old_piece = self[attacker][0]
+        original_at_new = self[target][0]
 
         # Check if the piece to be moved is owned by the current player
         if old_piece.piece.player != self.player:
@@ -151,26 +151,26 @@ class GameBoard(hx.HexMap):
         if old_piece.piece.player == original_at_new.piece.player:
             return
 
-        valid_moves = self.get_valid_moves(old_piece)
+        valid_moves = self.get_valid_attacks(old_piece)
         valid_moves_axials = np.array([i[0:2] for i in valid_moves])
         # Check if the new coordinate is in the range of valid moves
         valid_selection = False
 
         for move in valid_moves_axials:
-            if np.array_equal(new_coords, move):
+            if np.array_equal(target, move):
                 valid_selection = True
 
         if not valid_selection:
             return
 
         # Check if the piece is the enemy piece. This works
-        # because we already checked if the piece at new_coords,
-        # is owned by the same player. If the piece at new_coords is
+        # because we already checked if the piece at target,
+        # is owned by the same player. If the piece at target is
         # not empty as well, then it has to be the enemy's.
         if original_at_new.piece.player != 0:
             index = 0
             for move in valid_moves_axials:
-                if np.array_equal(move, new_coords):
+                if np.array_equal(move, target):
                     break
                 index += 1
 
@@ -180,7 +180,7 @@ class GameBoard(hx.HexMap):
             damage = np.floor(old_piece.piece.attack / (1 + np.log(valid_moves[index][2])) * max(0, np.random.normal(1, 0.2)))
             original_at_new.piece.health -= damage
             if original_at_new.piece.health > 0:
-                self.moved_pieces.append(old_coords)
+                self.fired_pieces.append(attacker)
                 return
             
         # Place the piece at the old coordinates to the new coordinates, and
@@ -191,31 +191,131 @@ class GameBoard(hx.HexMap):
         elif original_at_new.piece.player == 2:
             self.player2_pieces -= 1
 
+        self[target][0].piece = EmptyPiece
+        self.fired_pieces.append(attacker)
+    
+    def move_piece(self, old_coords, new_coords, new_direction):
+
+        # Check to make sure the coordinates are not the same.
+        if (np.array_equal(old_coords, new_coords) 
+        or any(np.array_equal(cd, old_coords) for cd in self.moved_pieces) 
+        or any(np.array_equal(cd, new_coords) for cd in self.moved_pieces)):
+            self[old_coords][0].piece.direction = new_direction
+            self.moved_pieces.append(new_coords)
+            
+            return
+        
+        # Get the piece at the old coordinates and the new coordinates
+        old_piece = self[old_coords][0]
+        original_piece_at_new = self[new_coords][0]
+
+        # Check if the piece to be moved is owned by the current player
+        if old_piece.piece.player != self.player:
+            return
+
+        # Check if the piece's new location already has a different piece on it.
+        if original_piece_at_new.piece.player != 0:
+            return
+
+        valid_moves = self.get_valid_moves(old_piece)
+        valid_moves_axials = np.array([i[0:2] for i in valid_moves])
+
+        # Check if the new coordinate is in the range of valid moves
+        valid_selection = False
+
+        for move in valid_moves_axials:
+            if np.array_equal(new_coords, move):
+                valid_selection = True
+
+        if not valid_selection:
+            return
+
         self[new_coords][0].piece = self[old_coords][0].piece
+        self[new_coords][0].piece.direction = new_direction
         self[old_coords][0].piece = EmptyPiece
 
         self.moved_pieces.append(new_coords)
 
-    # Partially implemented directional movement.
-    # TODO: Check for all directions in a hex, then if that direction
-    # is reachable, check if the neighbor can be reached.
+        # Since we are saving the coordinates of pieces, we need to check if there
+        # are any fired coordinates at the old coordinates that need to be moved
+        # to the new coordinates
+        index = 0
+        for piece in self.fired_pieces:
+            if np.array_equal(piece, old_coords):
+                break
+            index += 1
+
+        if not np.array_equal(self.fired_pieces, []):
+            self.fired_pieces[index] = new_coords
+
+    # Directional breadth first search movement algorithm. Absolutely atrocious runtime.
     def get_valid_moves(self, hex):
+        dist = hex.piece.distance
         center = hex.get_axial_coords()
-        center_direction = eval(hex.piece.direction)
-        center_start = np.array([center[0], center[1], 0])
-        w = center_start.tostring()
-        moves = np.array([center_start])
-        
+
+        moves = []
         frontier = Queue()
-        frontier.put(w)
 
         Directions = np.array(["NW", "NE", "SE", "SW", "E", "W"])
 
-        # for i in Directions:
-        #     print("the " + i + " neightbor of 0 0 is ", hx.cube_to_axial(hx.get_neighbor([[0, 0, 0]], eval("hx." + i))))
+        move = np.array([center[0], center[1], 0, hex.piece.direction], dtype = object)
+        frontier.put(move)
+
         while not frontier.empty():
-            current = np.fromstring(frontier.get(), dtype=np.int64)
-            
+            current = frontier.get()
+
+            r = current[0]
+            q = current[1]
+            cost = current[2]
+            direction = current[3]
+
+            found = False
+            for i in moves[::-1]:
+                if np.array_equal(current[0:2], i[0:2]) and current[3] == i[3]:
+                    if current[2] < i[2]:
+                        del i
+                    else:
+                        found = True
+                        break
+
+            if found:
+                continue
+
+            for dir in Directions:
+                move_cost = cost + v2_angle(eval(direction), eval(dir))
+                if move_cost <= dist:
+                    move = np.array([r, q, move_cost, dir], dtype = object)
+                    moves.append(move)
+
+                    cube_current = hx.axial_to_cube(np.array([current[0:2]]))
+                    neighbor = (cube_current + eval(dir))[0]
+
+                    if move_cost + 1 <= dist:
+                        neighbor_move = np.array([neighbor[0], neighbor[2], move_cost + 1, dir], dtype = object)
+
+                        if (np.array_equal(self[neighbor_move[0:2]], []) or self[neighbor_move[0:2]][0].piece.player != 0):
+                            continue
+                        frontier.put(neighbor_move)
+
+        moves = np.array(moves, dtype=object)
+        return moves
+
+    # Breadth first search, but technically implemented incorrectly for directional movement. 
+    # However, the shapes formed look quite nice to me as an attack formation.
+    def get_valid_attacks(self, hex):
+        center = hex.get_axial_coords()
+        center_direction = eval(hex.piece.direction)
+        center_start = np.array([center[0], center[1], 0])
+        moves = np.array([center_start])
+        
+        frontier = Queue()
+        frontier.put(center_start)
+
+        Directions = np.array(["NW", "NE", "SE", "SW", "E", "W"])
+
+        while not frontier.empty():
+            current = frontier.get()
+
             if current[2] > hex.piece.distance:
                 continue
 
@@ -233,9 +333,7 @@ class GameBoard(hx.HexMap):
                 direction_cube = eval("hx." + Directions[index])
                 index += 1
                 found = False
-                #  or
-                #  (self[hx.cube_to_axial(next_nb)][0].piece.player != hex.piece.player and 
-                #  self[hx.cube_to_axial(next_nb)][0].piece.player != 0))
+                
                 if np.array_equal(self[hx.cube_to_axial(next_nb)], []):
                     continue
                 
@@ -247,15 +345,18 @@ class GameBoard(hx.HexMap):
                 if found:
                     continue
                 else:
-                    if current[2] + v2_angle(center_direction, direction_cube) <= hex.piece.distance:
-                        new_move = np.array([next_nb[0][0], next_nb[0][2], current[2] + v2_angle(center_direction, direction_cube)])
+                    if current[2] + 1 + v2_angle(center_direction, direction_cube) <= hex.piece.distance:
+                        new_move = np.array([next_nb[0][0], next_nb[0][2], current[2] + 1 + v2_angle(center_direction, direction_cube)])
                         moves = np.vstack([moves, new_move])
-                        w = new_move.tostring()
-                        frontier.put(w)
+                        frontier.put(new_move)
+
         return moves
 
+    # Resets temporary variables, changes the current player, and checks to see 
+    # if the game has ended.
     def end_turn(self):
         self.moved_pieces = []
+        self.fired_pieces = []
 
         if self.player == 1:
             self.player = 2
@@ -268,4 +369,3 @@ class GameBoard(hx.HexMap):
             return 1
         else:
             return 0
-            

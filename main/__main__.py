@@ -1,5 +1,6 @@
 # This is needed becuase pygame's init() calls for an audio driver,
 # which seemed to default to ALSA, which was causing an underrun error.
+from ast import NodeTransformer
 import os
 
 os.environ['SDL_AUDIODRIVER'] = 'dsp'
@@ -13,7 +14,6 @@ import tkinter as tk
 import game_board as hxgame
 
 COLORS = np.array([
-    #[141, 207, 104],  # green
     [96, 171, 127], # new green
     [207, 0, 0],   # red
     [0, 255, 255],   # light blue
@@ -23,8 +23,6 @@ COLORS = np.array([
 HCOLORS = np.array([
     [255, 0, 0], # red
     [0, 255, 0], # green
-    [255, 128, 0] # orange
-
 ])
 
 DIRECTIONS = np.array(["SE", "SW", "W", "NW", "NE", "E"])
@@ -60,7 +58,7 @@ def make_hex_surface(color, radius, border_color=(100, 100, 100), border=True, h
 
     sorted_idxs = np.lexsort((points[:, 0], points[:, 1]))
 
-    surf_size = np.array((maxx - minx, maxy - miny), dtype=np.int) * 2 + 1
+    surf_size = np.array((maxx - minx, maxy - miny), dtype=np.int32) * 2 + 1
     center = surf_size / 2
     surface = pg.Surface(surf_size)
     surface.set_colorkey((0, 0, 0))
@@ -71,13 +69,13 @@ def make_hex_surface(color, radius, border_color=(100, 100, 100), border=True, h
 
     # fill if not hollow.
     if not hollow:
-        pg.draw.polygon(surface, color, points.astype(np.int) + center.astype(np.int), 0)
+        pg.draw.polygon(surface, color, points.astype(np.int32) + center.astype(np.int32), 0)
 
 
     points[sorted_idxs[-1:-4:-1]] += [0, 1]
     # if border is true or hollow is true draw border.
     if border or hollow:
-        pg.draw.lines(surface, border_color, True, points.astype(np.int) + center.astype(np.int), 1)
+        pg.draw.lines(surface, border_color, True, points.astype(np.int32) + center.astype(np.int32), 1)
 
     return surface
 
@@ -177,7 +175,7 @@ class VisualHexMap:
         self.size = np.array(size)
         self.width, self.height = self.size
         #self.center = (0 + hex_radius, 0 + hex_radius)
-        self.center = (self.size / 2).astype(np.int)
+        self.center = (self.size / 2).astype(np.int32)
         self.hex_radius = int(hex_radius * scale)      # Radius of individual hexagons
         self.caption = caption
         self.board = hxgame.GameBoard(dirname)
@@ -193,15 +191,32 @@ class VisualHexMap:
         
         self.hex_map[np.array([c.get_axial_coords() for c in temp_map_list])] = hexes
 
-        self.selected_hex_image = make_hex_surface(
+        self.movement_hex_image = make_hex_surface(
                 (128, 128, 128, 255),               # Highlight color for a hexagon.
                 self.hex_radius,                    # radius of individual hexagon
                 (255, 255, 255),                    # Border color white
                 hollow=True)  
 
+        self.attack_hex_image = make_hex_surface(
+                (128, 128, 128, 255),               # Highlight color for a hexagon.
+                self.hex_radius,                    # radius of individual hexagon
+                (255, 0, 0),                    # Border color white
+                hollow=True)  
+
+        self.moved_hex_image = make_hex_surface(
+                (128, 128, 128, 255),               # Highlight color for a hexagon.
+                self.hex_radius,                    # radius of individual hexagon
+                (128, 128, 128, 255))  
+        self.move_or_attack = 0
+
         self.clicked_hex = None
+        self.axial_clicked = None
         self.valid_moves = None
         self.axial_moves = None
+        self.temp_axial = None
+
+        self.movement_counter = CyclicInteger(1, 1, 3)
+        self.selected_movement_directions = []
 
         self.select_direction = CyclicInteger(0, 0, 5)
         self.turn_button = Button((0, 255, 0), int(750 * scale), 
@@ -234,31 +249,77 @@ class VisualHexMap:
         for event in pg.event.get():
             pos = pg.mouse.get_pos()
             if event.type == pg.MOUSEBUTTONDOWN:
-                if event.button == 1:# Left mouse
+                if event.button == 1 or event.button == 3:# Left mouse
                     mouse_pos = np.array([np.array(pos) - self.center])
-                    axial_clicked = hx.pixel_to_axial(mouse_pos, self.hex_radius).astype(np.int)
-                    try:
-                        axial_player = self.board.__getitem__(axial_clicked)[0].piece.player
-                        if (np.array_equal(self.valid_moves, None)) and axial_player == self.board.player:
-                            self.clicked_hex = axial_clicked
-                            self.axial_moves = self.board.get_valid_moves(self.board[self.clicked_hex][0])
-                            self.axial_moves = np.array([[i[0], i[1]] for i in self.axial_moves])
-                    except IndexError:
+                    self.axial_clicked = hx.pixel_to_axial(mouse_pos, self.hex_radius).astype(np.int32)
+                    axial_player = self.board[self.axial_clicked]
+                    if not np.array_equal(axial_player, []):
+                        axial_player = self.board[self.axial_clicked][0].piece.player
+                    else:
                         pass
 
+                    found = False
+
+                    if event.button == 1:
+                        for moved in self.board.moved_pieces:
+                            if np.array_equal(moved, self.axial_clicked[0]):
+                                found = True
+                                break
+                        if found:
+                            continue
+
+                    elif event.button == 3:
+                        for fired in self.board.fired_pieces:
+                            if np.array_equal(fired, self.axial_clicked[0]):
+                                found = True
+                                break
+                        if found:
+                            continue
+                    if (np.array_equal(self.valid_moves, None)) and axial_player == self.board.player:
+                        self.clicked_hex = self.axial_clicked
+
+                        if event.button == 1:
+                            self.axial_moves = self.board.get_valid_moves(self.board[self.clicked_hex][0])
+                            self.move_or_attack = 1
+                        elif event.button == 3:
+                            self.axial_moves = self.board.get_valid_attacks(self.board[self.clicked_hex][0])
+                            self.move_or_attack = 2
+                        #self.axial_moves = np.array([[i[0], i[1]] for i in self.axial_moves])
+
                     if not np.array_equal(self.clicked_hex, None) and not np.array_equal(self.valid_moves, None):
-                        try:
-                            if self.board.__getitem__(axial_clicked)[0] in self.board.__getitem__(self.valid_moves):
+                        print(self.board[self.axial_clicked])
+                        print(self.board[self.valid_moves])
+                        if (not np.array_equal(self.board[self.axial_clicked], [] and 
+                        self.board[self.axial_clicked][0] in self.board[self.valid_moves])):
+                            print("t")
+                            if event.button == 1:
+                                if np.array_equal(self.selected_movement_directions, []):
+                                    dirs = []
+                                    for axial in self.axial_moves:
+                                        if np.array_equal(self.axial_clicked[0], axial[0:2]):
+                                            dirs.append(np.where(DIRECTIONS == axial[3])[0][0])                                    
+                                    self.select_direction = CyclicInteger(0, 0, len(dirs) - 1)
+                                    self.selected_movement_directions = np.sort(dirs)
+                                    print("step 2")
+                                    self.temp_axial = self.axial_clicked
+                                    continue
+                                else:
+                                    new_dir = DIRECTIONS[self.selected_movement_directions[self.select_direction.value]]
+                                    print("step 3")
+                                    self.board.move_piece(self.clicked_hex[0], self.temp_axial[0], new_dir)
+                                    self.clicked_hex = None
+                                    self.axial_moves = None
+                                    self.valid_moves = None
+                                    self.axial_clicked = None
+                                    self.temp_axial = None
+                                    self.selected_movement_directions = []
+                            elif event.button == 3:
+                                self.board.attack_piece(self.clicked_hex[0], self.axial_clicked[0])
+                                self.clicked_hex = None
+                                self.axial_moves = None
+                                self.valid_moves = None
+                                self.axial_clicked = None
 
-                                self.board.move_piece(self.clicked_hex[0], axial_clicked[0])
-
-                        except IndexError:
-                            pass
-
-                        finally:
-                            self.clicked_hex = None
-                            self.axial_moves = None
-                            self.valid_moves = None
 
                 if event.button == 4: #Scroll up
                     self.select_direction.increment()
@@ -297,12 +358,23 @@ class VisualHexMap:
 
         # Draw game hexagons
         for index in sorted_indexes:
-            self.main_surf.blit(hexagons[index].image, (hex_positions[index] + self.center).astype(np.int))
+            self.main_surf.blit(hexagons[index].image, (hex_positions[index] + self.center).astype(np.int32))
             if TESTING:
                 v_coords = hexagons[index].get_axial_coords()[0]
                 c_text = self.test_font.render(str(v_coords[0]) +"," + str(v_coords[1]), True, (255, 255, 255))
                 c_width = self.test_font.size(str(v_coords[0]) +"," + str(v_coords[1]))[0]
-                self.main_surf.blit(c_text, (hexagons[index].get_position() + self.center - c_width / 2).astype(np.int))
+                self.main_surf.blit(c_text, (hexagons[index].get_position() + self.center - c_width / 2).astype(np.int32))
+
+        # Draw pieces that have already moved.
+        if not np.array_equal(self.board.moved_pieces, []):
+            moved_hexes = self.hex_map[np.array(self.board.moved_pieces)]
+            list(map(self.draw_moved, moved_hexes))
+
+        # Draw pieces that have already attacked.
+        if not np.array_equal(self.board.fired_pieces, []):
+            attacked_hexes = self.hex_map[np.array(self.board.fired_pieces)]
+            list(map(self.draw_attack, attacked_hexes))
+
         # Draw pieces
         for piece in self.board.values():
             w = piece.piece.p_type
@@ -313,7 +385,7 @@ class VisualHexMap:
                 pos = hx.axial_to_pixel(piece.get_axial_coords(), self.hex_radius)
                 text_pos = pos + self.center
                 text_pos -= (text.get_width() / 2, text.get_height() / 2)
-                self.main_surf.blit(text, text_pos.astype(np.int))
+                self.main_surf.blit(text, text_pos.astype(np.int32))
 
                             # This index is used to find the two angles for the directional triangle.
                 index = np.where(DIRECTIONS == piece.piece.direction)[0][0]
@@ -327,34 +399,35 @@ class VisualHexMap:
                 points = np.round(np.vstack([points, [0, 0]]))
 
                 # Find pixel coordinates, and draw the triangle.
-                coords = (points.astype(np.int) + hx.axial_to_pixel(piece.get_axial_coords(), self.hex_radius)).astype(np.int32)
+                coords = (points.astype(np.int32) + hx.axial_to_pixel(piece.get_axial_coords(), self.hex_radius)).astype(np.int32)
                 pg.draw.polygon(self.main_surf, COLORS[-2], coords + self.center, 0)
 
         # Draw valid moves if a piece is clicked
         if not np.array_equal(self.clicked_hex, None):
 
-            # Draw direction of currently selected piece
-
-            # This index is used to find the two angles for the directional triangle.
-            index = np.where(DIRECTIONS == self.board[self.clicked_hex][0].piece.direction)[0][0]
-            # Find the radian angles of the direction, and scale to the hex radius
-            angles_in_radians = np.deg2rad([60 * i + 30 for i in range(index, index + 2)])
-            x = self.hex_radius * np.cos(angles_in_radians)
-            y = self.hex_radius * np.sin(angles_in_radians)
-
-            # Merge all points to a single array of a triangle
-            points = np.round(np.vstack([x, y]).T)
-            points = np.round(np.vstack([points, [0, 0]]))
-
-            # Find pixel coordinates, and draw the triangle.
-            coords = (points.astype(np.int) + hx.axial_to_pixel(self.clicked_hex, self.hex_radius)).astype(np.int32)
-            pg.draw.polygon(self.main_surf, COLORS[-2], coords + self.center, 0)
-
             # Get the valid moves for a piece, and display them.
-            visual_moves = self.hex_map[self.axial_moves]
-            self.valid_moves = self.axial_moves
+            axials = np.array([i[0:2] for i in self.axial_moves])
+            visual_moves = self.hex_map[axials]
 
-            list(map(self.draw_selected, visual_moves))
+            self.valid_moves = self.axial_moves
+            if self.move_or_attack == 1:
+                list(map(self.draw_movement, visual_moves))
+            elif self.move_or_attack == 2:
+                list(map(self.draw_attack, visual_moves))
+
+            if not np.array_equal(self.selected_movement_directions, []):
+                index = self.selected_movement_directions[self.select_direction.value]
+                angles_in_radians = np.deg2rad([60 * i + 30 for i in range(index, index + 2)])
+                x = self.hex_radius * np.cos(angles_in_radians)
+                y = self.hex_radius * np.sin(angles_in_radians)
+
+                # Merge all points to a single array of a triangle
+                points = np.round(np.vstack([x, y]).T)
+                points = np.round(np.vstack([points, [0, 0]]))
+
+                # Find pixel coordinates, and draw the triangle.
+                coords = (points.astype(np.int32) + hx.axial_to_pixel(self.temp_axial[0][0:2], self.hex_radius)).astype(np.int32)
+                pg.draw.polygon(self.main_surf, COLORS[1], coords + self.center, 0)
 
         # Draw health bars
         health_scale = scale * self.hex_radius / 20
@@ -364,10 +437,10 @@ class VisualHexMap:
                 mh = piece.get_piece().max_health
                 ch = piece.get_piece().health
                 pixel_pos = hx.axial_to_pixel(np.array(piece.get_axial_coords()), self.hex_radius)
-                corner = (pixel_pos + self.center).astype(np.int) + ( int(-mh / 2 * health_scale), int(-20 * health_scale))
-                rect_pos = np.array([corner[0], corner[1], mh * health_scale, 8 * health_scale]).astype(np.int)
+                corner = (pixel_pos + self.center).astype(np.int32) + ( int(-mh / 2 * health_scale), int(-20 * health_scale))
+                rect_pos = np.array([corner[0], corner[1], mh * health_scale, 8 * health_scale]).astype(np.int32)
                 pg.draw.rect(self.main_surf, HCOLORS[0], rect_pos)
-                ch_rect_pos = np.array([corner[0], corner[1], ch *health_scale, 8 * health_scale]).astype(np.int)
+                ch_rect_pos = np.array([corner[0], corner[1], ch *health_scale, 8 * health_scale]).astype(np.int32)
                 pg.draw.rect(self.main_surf, HCOLORS[1], ch_rect_pos)
 
         # Display current FPS
@@ -385,12 +458,17 @@ class VisualHexMap:
         self.main_surf.fill(COLORS[-1])
         self.clock.tick(60)
 
-    def draw_selected(self, hexagon):
-        self.main_surf.blit(self.selected_hex_image, hexagon.get_draw_position().astype(np.int) + self.center)
+    def draw_movement(self, hexagon):
+        self.main_surf.blit(self.movement_hex_image, hexagon.get_draw_position().astype(np.int32) + self.center)
+
+    def draw_attack(self, hexagon):
+        self.main_surf.blit(self.attack_hex_image, hexagon.get_draw_position().astype(np.int32) + self.center)
+
+    def draw_moved(self, hexagon):
+        self.main_surf.blit(self.moved_hex_image, hexagon.get_draw_position().astype(np.int32) + self.center)
 
     def quit_app(self):
         pg.quit()
-        raise SystemExit
 
 if __name__ == '__main__':
 
@@ -404,4 +482,5 @@ if __name__ == '__main__':
         visual_hex_map.draw()
 
     visual_hex_map.quit_app()
-    input("Press enter to close...")
+    #input("Press enter to close...")
+    raise SystemExit
