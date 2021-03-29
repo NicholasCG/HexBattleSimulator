@@ -19,6 +19,7 @@ COLORS = np.array([
     [85, 163, 193],   # sky blue
 ])
 
+DIRECTIONS = ["SE", "SW", "W", "NW", "NE", "E"]
 
 class Selection:
     class Type:
@@ -224,17 +225,23 @@ class ExampleHexMap:
         self.hex_radius = int(hex_radius * self.size[0] / 1000)      # Radius of individual hexagons
 
         self.max_coord = ClampedInteger(13, 1, 13) # Controls the radius of the hex map in hexagon shape.
+        self.selection = ClampedInteger(1, 0, 4)  # Controls map style selection in step 1.
+        self.piece_selection = CyclicInteger(1, 1, num_pieces) # Controls piece type in step 2.
+        self.player_selection = CyclicInteger(1, 1, 2) # Controls player in step 2.
+        self.direction_selection = CyclicInteger(0, 0, 5) # Controls direction of pieces in step 2.
 
-        self.selection = ClampedInteger(1, 0, 4)  # Clamps the radius to a default of 3, with a min of 1 and max of 5. This
-                                            # is related to the ring and disk functions.
+        self.old_selection = self.selection.value # Saves old selection, used so a new map isn't generated every turn.
+        self.old_max = self.max_coord.value # Holds the old maximum size.
+        self.old_axial_held = np.array([]) # Hold the old axial coordinates the mouse is at in custom map mode.
 
-        self.piece_selection = ClampedInteger(1, 1, num_pieces)
-        self.player_selection = CyclicInteger(1, 1, 2)
+        self.clicked_hex = np.array([0, 0])      # Center hex
+        self.direction_hex = np.array([])
 
-        self.old_selection = self.selection.value
-        self.old_max = self.max_coord.value
-
-        self.clicked_hex = np.array([0, 0, 0])      # Center hex
+        self.selected_hex_image = make_hex_surface(
+                (128, 128, 128, 255),               # Highlight color for a hexagon.
+                self.hex_radius,                    # radius of individual hexagon
+                (255, 255, 255),                    # Border color white
+                hollow=True)  
 
         self.hex_map = Selection.get_selection(self.selection.value, self.max_coord.value, self.hex_radius)
 
@@ -272,37 +279,56 @@ class ExampleHexMap:
         for event in pg.event.get():
             if event.type == pg.QUIT:
                 running = False
-
-            if event.type == pg.MOUSEBUTTONDOWN:
+            if event.type == pg.MOUSEBUTTONUP:
                 if event.button == 1:# Left mouse
                     self.clicked_hex = hx.pixel_to_axial(
                             np.array([pg.mouse.get_pos() - self.center]), 
                             self.hex_radius)[0].astype(np.int32)
-                    
+
                     if self.step == 2:
+                        if np.array_equal(self.hex_map[self.clicked_hex], []):
+                            self.clicked_hex = self.old_axial_held
+                            continue
 
-                        if not np.array_equal(self.hex_map[self.clicked_hex], []):
-                            index = 0
-                            repeat = False
-                            for piece in self.player_list[1]:
-                                if np.array_equal(piece[1], self.clicked_hex):
-                                    del self.player_list[1][index]
-                                    repeat = True
-                                else:
-                                    index += 1
+                        if not np.array_equal(self.clicked_hex, self.old_axial_held):
+                            self.direction_hex = np.array([])
 
-                            index = 0
-                            for piece in self.player_list[2]:
-                                if np.array_equal(piece[1], self.clicked_hex):
-                                    del self.player_list[2][index]
-                                    repeat = True
-                                else:
-                                    index += 1
+                        index = 0
+                        repeat = False
+                        for piece in self.player_list[1]:
+                            if np.array_equal(piece[1], self.clicked_hex):
+                                del self.player_list[1][index]
+                                repeat = True
+                            else:
+                                index += 1
 
-                            if not repeat:
-                                self.player_list[self.player_selection.value].append([self.piece_selection.value, self.clicked_hex])
+                        index = 0
+                        for piece in self.player_list[2]:
+                            if np.array_equal(piece[1], self.clicked_hex):
+                                del self.player_list[2][index]
+                                repeat = True
+                            else:
+                                index += 1
+
+                        if repeat:
+                            continue
+
+                        if self.clicked_hex.size > 0:
+                            if self.direction_hex.size <= 0:
+                                self.direction_hex = self.clicked_hex
+                            else:
+                                self.direction_hex = np.array([])
+
+                                if not repeat:
+                                    self.player_list[self.player_selection.value].append([self.piece_selection.value, 
+                                                                                        self.clicked_hex, 
+                                                                                        self.direction_selection.value])
+                                self.direction_selection.value = 0
+
+                        self.old_axial_held = self.clicked_hex
                         
                 
+            if event.type == pg.MOUSEBUTTONDOWN:
                 if self.step == 1:
                     if event.button == 4: #Scroll up
                         self.selection.increment()
@@ -312,9 +338,9 @@ class ExampleHexMap:
                     if event.button == 3:
                         self.player_selection.increment()
                     if event.button == 4: #Scroll up
-                        self.piece_selection.increment()
+                        self.direction_selection.increment()
                     if event.button == 5: #scroll down
-                        self.piece_selection.decrement()
+                        self.direction_selection.decrement()
 
             if event.type == pg.KEYUP:
                 if self.step == 1:
@@ -322,6 +348,11 @@ class ExampleHexMap:
                         self.max_coord.increment()
                     elif event.key == pg.K_LEFT:
                         self.max_coord.decrement()
+                elif self.step == 2:
+                    if event.key == pg.K_RIGHT:
+                        self.piece_selection.increment()
+                    elif event.key == pg.K_LEFT:
+                        self.piece_selection.decrement()
 
             if event.type == pg.KEYDOWN:
                 if event.key == pg.K_RETURN:
@@ -329,6 +360,25 @@ class ExampleHexMap:
                 if event.key == pg.K_ESCAPE or self.step > 2:
                     running = False
 
+            # Check if we are in the map-making step, and it is a custom map.
+            if self.step == 1 and self.selection.value == Selection.Type.CUSTOM:
+
+                # Check that the left mouse is being held down and the mouse is moving.
+                if event.type == pg.MOUSEMOTION and event.buttons == (1, 0, 0):
+                    mouse_pos = np.array([np.array(pg.mouse.get_pos()) - self.center])
+                    axial_clicked = hx.pixel_to_axial(mouse_pos, self.hex_radius).astype(np.int32)[0]
+
+                    # Check if within the map boundaries and the mouse is not on the same tile as before.
+                    if not np.array_equal(self.b_map[axial_clicked], []) and not np.array_equal(axial_clicked, self.old_axial_held):
+
+                            # Check if a tile already exists. If not, create one. If one does, delete it.
+                            if np.array_equal(self.hex_map[axial_clicked], []):
+                                self.hex_map[[axial_clicked]] = [ExampleHex(axial_clicked, [141, 207, 104, 255], self.hex_radius)]
+                            else:
+                                del self.hex_map[axial_clicked]
+
+                            # Save the axial coordinates so the tile is not added and delete every other frame.
+                            self.old_axial_held = axial_clicked
         return running
 
     def main_loop(self):
@@ -370,7 +420,27 @@ class ExampleHexMap:
             hex_positions = np.array([hexagon.get_draw_position() for hexagon in hexagons])
             sorted_indexes = np.argsort(hex_positions[:, 1])
             for index in sorted_indexes:
-                self.main_surf.blit(hexagons[index].image, (hex_positions[index] + self.center).astype(int))
+                self.main_surf.blit(hexagons[index].image, (hex_positions[index] + self.center).astype(np.int32))
+
+            if self.direction_hex.size > 0:
+                pixels = self.hex_map[self.clicked_hex][0].get_draw_position() + self.center
+                self.main_surf.blit(self.selected_hex_image, pixels.astype(np.int32))
+                # This index is used to find the two angles for the directional triangle.
+                index = self.direction_selection.value
+                # Find the radian angles of the direction, and scale to the hex radius
+                angles_in_radians = np.deg2rad([60 * i + 30 for i in range(index, index + 2)])
+                x = self.hex_radius * np.cos(angles_in_radians)
+                y = self.hex_radius * np.sin(angles_in_radians)
+
+                # Merge all points to a single array of a triangle
+                points = np.round(np.vstack([x, y]).T)
+                points = np.round(np.vstack([points, [0, 0]]))
+                
+                # Find pixel coordinates for the triangle, then find the middle point of the far edge, and draw the line.
+                coords = (points + hx.axial_to_pixel(self.clicked_hex, self.hex_radius))
+                start_point = coords[2] + self.center
+                end_point = (coords[0] + coords[1]) / 2 + self.center
+                pg.draw.line(self.main_surf, [230, 230, 0], start_point.astype(np.int32), end_point.astype(np.int32), 3)
 
             player_text = self.font.render(
                 "Current Player: " + str(self.player_selection.value),
@@ -382,20 +452,52 @@ class ExampleHexMap:
                     (50, 50, 50))
 
             for piece1 in self.player_list[1]:
-                text = self.font.render(str(piece1[0]), False, COLORS[1], (0, 0, 0))
-                text.set_alpha(160)
+                text = self.font.render(str(piece1[0]), False, COLORS[1])
                 pos = hx.axial_to_pixel(piece1[1], self.hex_radius)
                 text_pos = pos + self.center
                 text_pos -= (text.get_width() / 2, text.get_height() / 2)
                 self.main_surf.blit(text, text_pos.astype(np.int32))
 
+                # This index is used to find the two angles for the directional triangle.
+                index = piece1[2]
+                # Find the radian angles of the direction, and scale to the hex radius
+                angles_in_radians = np.deg2rad([60 * i + 30 for i in range(index, index + 2)])
+                x = self.hex_radius * np.cos(angles_in_radians)
+                y = self.hex_radius * np.sin(angles_in_radians)
+
+                # Merge all points to a single array of a triangle
+                points = np.round(np.vstack([x, y]).T)
+                points = np.round(np.vstack([points, [0, 0]]))
+                
+                # Find pixel coordinates for the triangle, then find the middle point of the far edge, and draw the line.
+                coords = (points + hx.axial_to_pixel(piece1[1], self.hex_radius))
+                start_point = coords[2] + self.center
+                end_point = (coords[0] + coords[1]) / 2 + self.center
+                pg.draw.line(self.main_surf, [230, 230, 0], start_point.astype(np.int32), end_point.astype(np.int32), 3)
+
             for piece2 in self.player_list[2]:
-                text = self.font.render(str(piece2[0]), False, COLORS[2], (0, 0, 0))
-                text.set_alpha(160)
+                text = self.font.render(str(piece2[0]), False, COLORS[2])
                 pos = hx.axial_to_pixel(piece2[1], self.hex_radius)
                 text_pos = pos + self.center
                 text_pos -= (text.get_width() / 2, text.get_height() / 2)
                 self.main_surf.blit(text, text_pos.astype(np.int32))
+
+                # This index is used to find the two angles for the directional triangle.
+                index = piece2[2]
+                # Find the radian angles of the direction, and scale to the hex radius
+                angles_in_radians = np.deg2rad([60 * i + 30 for i in range(index, index + 2)])
+                x = self.hex_radius * np.cos(angles_in_radians)
+                y = self.hex_radius * np.sin(angles_in_radians)
+
+                # Merge all points to a single array of a triangle
+                points = np.round(np.vstack([x, y]).T)
+                points = np.round(np.vstack([points, [0, 0]]))
+                
+                # Find pixel coordinates for the triangle, then find the middle point of the far edge, and draw the line.
+                coords = (points + hx.axial_to_pixel(piece2[1], self.hex_radius))
+                start_point = coords[2] + self.center
+                end_point = (coords[0] + coords[1]) / 2 + self.center
+                pg.draw.line(self.main_surf, [230, 230, 0], start_point.astype(np.int32), end_point.astype(np.int32), 3)
 
             self.main_surf.blit(player_text, (5, 20))
             self.main_surf.blit(piece_selection_text, (5, 40))
@@ -415,10 +517,17 @@ class ExampleHexMap:
         board['board'] = [hex.axial_coordinates[0].astype(np.int32).tolist() for hex in hexagons]
 
         # TODO: Allow player to pick the direction of each piece. For now, have dummy direction.
-        onepieces['player1'] = {i + 1: [self.player_list[1][i][0], self.player_list[1][i][1].tolist(), "E"] 
+        #print(DIRECTIONS[self.player_list[1][0][2]])
+        # print(self.player_list[1][0])
+        # print(self.player_list[1][0][2])
+        onepieces['player1'] = {i + 1: [self.player_list[1][i][0], 
+                                        self.player_list[1][i][1].tolist(), 
+                                        DIRECTIONS[self.player_list[1][i][2]]] 
                                 for i in range(0, len(self.player_list[1]))}
 
-        twopieces['player2'] = {i + 1: [self.player_list[2][i][0], self.player_list[2][i][1].tolist(), "E"] 
+        twopieces['player2'] = {i + 1: [self.player_list[2][i][0], 
+                                        self.player_list[2][i][1].tolist(), 
+                                        DIRECTIONS[self.player_list[2][i][2]]] 
                                 for i in range(0, len(self.player_list[2]))}
         pg.quit()
         return board, onepieces, twopieces
@@ -447,9 +556,10 @@ if __name__ == '__main__':
     for i in range(1, num_pieces + 1):
         print("Settings for piece type {}:".format(i))
         health = int(input("health: "))
-        distance = int(input("distance: "))
-        attack = int(input("attack power: "))
-        pieces_list[i] = {'health': health, 'distance': distance, 'attack': attack}
+        distance = int(input("movement distance: "))
+        attack_d = int(input("attack distance: "))
+        power = int(input("attack power: "))
+        pieces_list[i] = {'health': health, 'movement_d': distance, 'attack_d': attack_d, 'power': power}
 
     settings['pieces'] = pieces_list
 

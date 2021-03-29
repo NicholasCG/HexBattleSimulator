@@ -6,19 +6,15 @@ class PieceTemplate(hx.HexTile):
     about piece types. Generated when importing
     from settings file.
     '''
-    def __init__(self, health, distance, attack):
+    def __init__(self, health, movement_d, attack_d, power):
         self.health = health
-        self.distance = distance
-        self.attack = attack
+        self.movement_d = movement_d
+        self.attack_d = attack_d
+        self.power = power
 
-EmptyTemplate = PieceTemplate(0, 0, 0)
+EmptyTemplate = PieceTemplate(0, 0, 0, 0)
 
 class Piece:
-    EMPTY = 0
-    INFANTRY = 1
-    DEFENSE = 2
-    SPEED = 3 
-
     '''
     Holds information about a piece on the board.
     Stores coordinates, piece type, owner, and 
@@ -29,8 +25,9 @@ class Piece:
         self.player = player
         self.max_health = template.health
         self.health = template.health
-        self.distance = template.distance
-        self.attack = template.attack
+        self.movement_d = template.movement_d
+        self.attack_d = template.attack_d
+        self.power = template.power
         self.direction = direction
         self.template = template
 

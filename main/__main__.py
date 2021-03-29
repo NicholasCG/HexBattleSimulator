@@ -7,8 +7,7 @@ os.environ['SDL_AUDIODRIVER'] = 'dsp'
 import hexy as hx
 import numpy as np
 import pygame as pg
-import tkinter.filedialog
-import tkinter as tk
+from tkinter import filedialog, Tk
 
 import game_board as hxgame
 
@@ -19,15 +18,10 @@ COLORS = np.array([
     [36, 65, 255]     # ocean blue
 ])
 
-HCOLORS = np.array([
-    [255, 0, 0], # red
-    [0, 255, 0], # green
-])
-
 DIRECTIONS = np.array(["SE", "SW", "W", "NW", "NE", "E"])
 TESTING = 0
 
-root = tk.Tk()
+root = Tk()
 root.withdraw()
 size = (root.winfo_screenheight(), root.winfo_screenheight())
 root.destroy()
@@ -310,10 +304,7 @@ class VisualHexMap:
                     elif self.step == 3:
                         if (not np.array_equal(self.board[self.axial_clicked], []) and 
                         self.board[self.axial_clicked][0] in self.board[self.valid_moves]):
-
-
                             new_dir = DIRECTIONS[self.selected_movement_directions[self.select_direction.value]]
-                            print("step 3")
                             self.board.move_piece(self.clicked_hex[0], self.temp_axial[0], new_dir)
                         self.clicked_hex = None
                         self.axial_moves = None
@@ -510,9 +501,9 @@ class VisualHexMap:
 
 if __name__ == '__main__':
 
-    root = tk.Tk()
+    root = Tk()
     root.withdraw()
-    dirname = tk.filedialog.askopenfilename(initialdir = "settings/", title = "Select config file to use")
+    dirname = filedialog.askopenfilename(initialdir = "settings/", title = "Select config file to use")
     root.destroy()
     visual_hex_map = VisualHexMap(dirname)
 

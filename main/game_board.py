@@ -93,8 +93,9 @@ class GameBoard(hx.HexMap):
         # Create piece templates
         for piece, info in test_list['pieces'].items():
             self.templates.append(PieceTemplate(info['health'], 
-                                                info['distance'], 
-                                                info['attack']))
+                                                info['movement_d'], 
+                                                info['attack_d'],
+                                                info['power']))
 
         # Import board from settings
         self.axial_coords = np.array([np.array(i) for i in test_list['board']])
@@ -177,7 +178,7 @@ class GameBoard(hx.HexMap):
             # Subtract health from the enemy piece.
             # Damage = max attack power divided by 1 plus the natural log of the moves's distance.
             # This is then multiplied by a random value, and then floored to preserve integer value.
-            damage = np.floor(attacking_piece.piece.attack / (1 + np.log(valid_moves[index][2])) * max(0, np.random.normal(1, 0.2)))
+            damage = np.floor(attacking_piece.piece.power / (1 + np.log(valid_moves[index][2])) * max(0, np.random.normal(1, 0.2)))
             target_piece.piece.health -= int(damage)
             if target_piece.piece.health > 0:
                 self.fired_pieces.append(attacker)
@@ -242,15 +243,13 @@ class GameBoard(hx.HexMap):
         index = 0
         for piece in self.fired_pieces:
             if np.array_equal(piece, old_coords):
+                self.fired_pieces[index] = new_coords
                 break
             index += 1
 
-        if not np.array_equal(self.fired_pieces, []):
-            self.fired_pieces[index] = new_coords
-
     # Directional breadth first search movement algorithm. Absolutely atrocious runtime.
     def get_valid_moves(self, hex):
-        dist = hex.piece.distance
+        dist = hex.piece.movement_d
         center = hex.get_axial_coords()
 
         moves = []
@@ -316,7 +315,7 @@ class GameBoard(hx.HexMap):
         while not frontier.empty():
             current = frontier.get()
 
-            if current[2] > hex.piece.distance:
+            if current[2] > hex.piece.attack_d:
                 continue
 
             cube_current = hx.axial_to_cube(np.array([current[0:2]]))
@@ -345,7 +344,7 @@ class GameBoard(hx.HexMap):
                 if found:
                     continue
                 else:
-                    if current[2] + 1 + v2_angle(center_direction, direction_cube) <= hex.piece.distance:
+                    if current[2] + 1 + v2_angle(center_direction, direction_cube) <= hex.piece.attack_d:
                         new_move = np.array([next_nb[0][0], next_nb[0][2], current[2] + 1 + v2_angle(center_direction, direction_cube)])
                         moves = np.vstack([moves, new_move])
                         frontier.put(new_move)
