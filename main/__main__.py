@@ -23,7 +23,7 @@ TESTING = 0
 
 root = Tk()
 root.withdraw()
-size = (root.winfo_screenheight(), root.winfo_screenheight())
+size = (root.winfo_screenheight() - 50, root.winfo_screenheight() - 50)
 root.destroy()
 scale = size[0] / 1000
 
@@ -64,13 +64,13 @@ def make_hex_surface(color, radius, border_color=(100, 100, 100), border=True, h
     if not hollow:
         pg.draw.polygon(surface, color, points.astype(np.int32) + center.astype(np.int32), 0)
 
-
     points[sorted_idxs[-1:-4:-1]] += [0, 1]
     # if border is true or hollow is true draw border.
     if border or hollow:
         pg.draw.lines(surface, border_color, True, points.astype(np.int32) + center.astype(np.int32), 1)
 
     return surface
+
 
 class CyclicInteger:
     """
@@ -126,6 +126,7 @@ class Button():
                 return True
             
         return False
+
 
 class VisualHex(hx.HexTile):
     '''
@@ -220,6 +221,7 @@ class VisualHexMap:
                                                 'End Turn')
 
         self.main_surf = None
+        self.test_surf = None
         self.font = None
         self.fps_font = None
         self.clock = None
@@ -228,6 +230,8 @@ class VisualHexMap:
     def init_pg(self):
         pg.init()
         self.main_surf = pg.display.set_mode(self.size)
+        self.test_surf = pg.Surface((size[0], size[1] - int(20 * scale) - int(75 * scale)))
+        self.test_center = (self.center[0], self.center[1] - int(100 * scale))
         pg.display.set_caption(self.caption)
 
         pg.font.init()
@@ -239,17 +243,56 @@ class VisualHexMap:
             self.test_font = pg.font.SysFont("monospace", 10, True)
         self.clock = pg.time.Clock()
 
+    def regenerate_size_objects(self):
+        self.hex_map = hx.HexMap()
+        temp_map_list = np.array([*self.board.values()])
+
+        hexes = [VisualHex(coords.get_axial_coords(), 
+                            COLORS[0], 
+                            self.hex_radius) for coords in temp_map_list]
+        
+        self.hex_map[np.array([c.get_axial_coords() for c in temp_map_list])] = hexes
+
+        self.movement_hex_image = make_hex_surface(
+                (128, 128, 128, 255),               # Highlight color for a hexagon.
+                self.hex_radius,                    # radius of individual hexagon
+                (255, 255, 255),                    # Border color white
+                hollow=True)  
+
+        self.attack_hex_image = make_hex_surface(
+                (128, 128, 128, 255),               # Highlight color for a hexagon.
+                self.hex_radius,                    # radius of individual hexagon
+                (255, 0, 0),                    # Border color white
+                hollow=True)  
+
+        self.moved_hex_image = make_hex_surface(
+                (128, 128, 128, 255),               # Highlight color for a hexagon.
+                self.hex_radius,                    # radius of individual hexagon
+                (128, 128, 128, 255))  
+
+        self.font = pg.font.SysFont("monospace", self.hex_radius + 7, True)
+        self.health_font = pg.font.SysFont("arial", self.hex_radius - 7, True)
+
     def handle_events(self):
         running = True
         for event in pg.event.get():
+            keys = pg.key.get_pressed()
             pos = pg.mouse.get_pos()
-            if event.type == pg.MOUSEBUTTONUP: # Attacking or moving
-                
-                if event.button == 1: # Left Click (Move)
-                    mouse_pos = np.array([np.array(pos) - self.center])
-                    self.axial_clicked = hx.pixel_to_axial(mouse_pos, self.hex_radius).astype(np.int32)
-                    axial_player = self.board[self.axial_clicked]
+            rel_pos = pg.mouse.get_rel()
 
+            if keys[pg.K_c]:
+                self.test_center = (self.center[0], self.center[1] - int(100 * scale))
+                
+            if event.type == pg.MOUSEBUTTONUP: # Attacking or moving
+
+                # Stops clicking on tiles that are hidden up top.
+                if pos[1] <= int(100 * scale):
+                    continue
+
+                mouse_pos = np.array([np.array(pos) - self.test_center - [0, int(100 * scale)]])
+                self.axial_clicked = hx.pixel_to_axial(mouse_pos, self.hex_radius).astype(np.int32)
+                axial_player = self.board[self.axial_clicked]
+                if event.button == 1: # Left Click (Move)
                     if self.step == 3:
                         if not np.array_equal(self.axial_clicked, self.temp_axial):
                             self.step = 2
@@ -315,9 +358,6 @@ class VisualHexMap:
                         self.step = 1
                 
                 if event.button == 3: # Right click (Attack)
-                    mouse_pos = np.array([np.array(pos) - self.center])
-                    self.axial_clicked = hx.pixel_to_axial(mouse_pos, self.hex_radius).astype(np.int32)
-                    axial_player = self.board[self.axial_clicked]
                     if not np.array_equal(axial_player, []):
                         axial_player = self.board[self.axial_clicked][0].piece.player
                     else:
@@ -346,15 +386,27 @@ class VisualHexMap:
                         self.axial_clicked = None
 
             if event.type == pg.MOUSEBUTTONDOWN:
-                if event.button == 4: #Scroll up
-                    self.select_direction.increment()
-                if event.button == 5: #scroll down
-                    self.select_direction.decrement()
+                if event.button == 4:
+                    if keys[pg.K_LCTRL]: #Scroll up
+                        self.hex_radius += 1
+                        self.regenerate_size_objects()
+                    else:
+                        self.select_direction.increment()
+                if event.button == 5:
+                    if keys[pg.K_LCTRL]: #scroll down
+                        self.hex_radius -= 1
+                        if self.hex_radius < 1:
+                            self.hex_radius = 1
+                        self.regenerate_size_objects()
+                    else:
+                        self.select_direction.decrement()
 
                 if self.turn_button.isOver(pos):
                     self.win_state = self.board.end_turn()
 
             if event.type == pg.MOUSEMOTION:
+                if event.buttons == (1, 0, 0) and keys[pg.K_LCTRL]:
+                    self.test_center = (self.test_center[0] + rel_pos[0], self.test_center[1] + rel_pos[1])
                 if self.turn_button.isOver(pos):
                     self.turn_button.color = (0, 194, 0)
                 else:
@@ -381,13 +433,15 @@ class VisualHexMap:
         sorted_indexes = np.argsort(hex_positions[:, 1])
 
         # Draw game hexagons
+        self.test_surf.fill(COLORS[-1])
         for index in sorted_indexes:
-            self.main_surf.blit(hexagons[index].image, (hex_positions[index] + self.center).astype(np.int32))
+            self.test_surf.blit(hexagons[index].image, (hex_positions[index] + self.test_center).astype(np.int32))
             if TESTING:
                 v_coords = hexagons[index].get_axial_coords()[0]
                 c_text = self.test_font.render(str(v_coords[0]) +"," + str(v_coords[1]), True, (255, 255, 255))
                 c_width = self.test_font.size(str(v_coords[0]) +"," + str(v_coords[1]))[0]
-                self.main_surf.blit(c_text, (hexagons[index].get_position() + self.center - c_width / 2).astype(np.int32))
+                self.test_surf.blit(c_text, (hexagons[index].get_position() + self.test_center - c_width / 2).astype(np.int32))
+        #self.test_surf.fill(COLORS[-1])
 
         # Draw pieces that have already moved.
         if not np.array_equal(self.board.moved_pieces, []):
@@ -416,17 +470,17 @@ class VisualHexMap:
                 
                 # Find pixel coordinates for the triangle, then find the middle point of the far edge, and draw the line.
                 coords = (points + hx.axial_to_pixel(piece.get_axial_coords(), self.hex_radius))
-                start_point = coords[2] + self.center
-                end_point = (coords[0] + coords[1]) / 2 + self.center
-                pg.draw.line(self.main_surf, [230, 230, 0], start_point.astype(np.int32), end_point.astype(np.int32), 3)
+                start_point = coords[2] + self.test_center
+                end_point = (coords[0] + coords[1]) / 2 + self.test_center
+                pg.draw.line(self.test_surf, [230, 230, 0], start_point.astype(np.int32), end_point.astype(np.int32), 3)
                 
                 # Draw piece
                 text = self.font.render(str(w), False, COLORS[piece.piece.player])
                 #text.set_alpha(160)
                 pos = hx.axial_to_pixel(piece.get_axial_coords(), self.hex_radius)
-                text_pos = pos + self.center
+                text_pos = pos + self.test_center
                 text_pos -= (text.get_width() / 2, text.get_height() / 2)
-                self.main_surf.blit(text, text_pos.astype(np.int32))
+                self.test_surf.blit(text, text_pos.astype(np.int32))
 
         # Draw valid moves if a piece is clicked
         if not np.array_equal(self.clicked_hex, None):
@@ -453,7 +507,7 @@ class VisualHexMap:
 
                 # Find pixel coordinates, and draw the triangle.
                 coords = (points.astype(np.int32) + hx.axial_to_pixel(self.temp_axial[0][0:2], self.hex_radius)).astype(np.int32)
-                pg.draw.polygon(self.main_surf, COLORS[1], coords + self.center, 0)
+                pg.draw.polygon(self.test_surf, COLORS[1], coords + self.test_center, 0)
 
         # Draw health bars
         for piece in self.board.values():
@@ -466,11 +520,11 @@ class VisualHexMap:
                 health_text = self.health_font.render(health_string , True, (50, 50, 50))
 
                 piece_pixel_coords = hx.axial_to_pixel(piece.get_axial_coords(), self.hex_radius)
-                piece_centered_coords = piece_pixel_coords + self.center
+                piece_centered_coords = piece_pixel_coords + self.test_center
                 piece_centered_coords -= (health_text.get_width() / 2, 1.4 * health_text.get_height())
                 piece_centered_coords = (int(piece_centered_coords[0]), int(piece_centered_coords[1]))
 
-                self.main_surf.blit(health_text, piece_centered_coords)
+                self.test_surf.blit(health_text, piece_centered_coords)
 
         # Display current FPS
         fps_text = self.fps_font.render(" FPS: " + str(int(self.clock.get_fps())), True, (50, 50, 50))
@@ -482,19 +536,20 @@ class VisualHexMap:
         self.main_surf.blit(player_text, (int(self.center[0] - player_width / 2), int(20 * scale)))
         self.turn_button.draw(self.main_surf, (0, 0, 0))
         
+        self.main_surf.blit(self.test_surf, (0, int(100 * scale)))
         # Update window and keep background  
         pg.display.update()
         self.main_surf.fill(COLORS[-1])
         self.clock.tick(60)
 
     def draw_movement(self, hexagon):
-        self.main_surf.blit(self.movement_hex_image, hexagon.get_draw_position().astype(np.int32) + self.center)
+        self.test_surf.blit(self.movement_hex_image, hexagon.get_draw_position().astype(np.int32) + self.test_center)
 
     def draw_attack(self, hexagon):
-        self.main_surf.blit(self.attack_hex_image, hexagon.get_draw_position().astype(np.int32) + self.center)
+        self.test_surf.blit(self.attack_hex_image, hexagon.get_draw_position().astype(np.int32) + self.test_center)
 
     def draw_moved(self, hexagon):
-        self.main_surf.blit(self.moved_hex_image, hexagon.get_draw_position().astype(np.int32) + self.center)
+        self.test_surf.blit(self.moved_hex_image, hexagon.get_draw_position().astype(np.int32) + self.test_center)
 
     def quit_app(self):
         pg.quit()
