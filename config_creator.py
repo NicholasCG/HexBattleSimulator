@@ -353,6 +353,10 @@ class ExampleHexMap:
                         self.piece_selection.increment()
                     elif event.key == pg.K_LEFT:
                         self.piece_selection.decrement()
+                    elif event.key == pg.K_a:
+                        self.direction_selection.decrement()
+                    elif event.key == pg.K_d:
+                        self.direction_selection.increment()
 
             if event.type == pg.KEYDOWN:
                 if event.key == pg.K_RETURN:

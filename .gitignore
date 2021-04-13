@@ -1,5 +1,6 @@
 # Ignore local testing files except the main file.= and the settings file.
 */
+!logs/
 !main/
 !settings/
 
@@ -7,6 +8,9 @@
 settings/*.yaml
 !settings/default_settings.yaml
 
+# Ignore local game logs except for the example log.
+logs/*
+!logs/example-log.txt
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

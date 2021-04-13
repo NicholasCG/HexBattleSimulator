@@ -2,6 +2,7 @@ import numpy as np
 import hexy as hx
 from piece import Piece, PieceTemplate, EmptyTemplate, EmptyPiece
 import yaml
+import export
 from queue import Queue
 from os import path
 
@@ -132,6 +133,9 @@ class GameBoard(hx.HexMap):
                 index += 1
 
         self[self.axial_coords] = self.game_hexes
+
+        self.export_loc = export.init_log(self)
+        export.parse_turn(self, self.export_loc)
 
     def attack_piece(self, attacker, target):
         # Check to make sure the coordinates are not the same.
@@ -354,6 +358,7 @@ class GameBoard(hx.HexMap):
     # Resets temporary variables, changes the current player, and checks to see 
     # if the game has ended.
     def end_turn(self):
+        export.parse_turn(self, self.export_loc)
         self.moved_pieces = []
         self.fired_pieces = []
 
