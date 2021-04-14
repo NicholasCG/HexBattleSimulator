@@ -1,5 +1,4 @@
 from datetime import datetime
-import numpy as np
 
 def init_log(game):
     day = datetime.now()

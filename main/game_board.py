@@ -33,7 +33,7 @@ def v2_angle(vector1, vector2):
     elif val == -1.0:
         return 3
     else:
-        print("something's wrong")
+        print("Error! Unusual directions given: ")
         print(vector1, vector2)
         return int(0.954929658551372 * np.arccos(val))
 
@@ -336,9 +336,6 @@ class GameBoard(hx.HexMap):
                 direction_cube = eval("hx." + Directions[index])
                 index += 1
                 found = False
-                
-                if np.array_equal(self[hx.cube_to_axial(next_nb)], []):
-                    continue
                 
                 for i in moves[::-1]:
                     if np.array_equal(next_nb[0][::2], i[0:2]):

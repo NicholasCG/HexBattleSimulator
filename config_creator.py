@@ -212,7 +212,7 @@ class ExampleHexMap:
     def __init__(self, num_pieces, hex_radius=20, caption="Config File Creator"):
 
         root = Tk()
-        size = (root.winfo_screenheight(), root.winfo_screenheight())
+        size = (root.winfo_screenheight() - 50, root.winfo_screenheight() - 50)
         root.destroy()
         
         self.caption = caption              # Controls window caption
