@@ -5,7 +5,7 @@ roughly simulate combat for analysis purposes.
 
 If there are any issues with the program, please let me know at [nicholascgray@knights.ucf.edu](mailto:nicholascgray@knights.ucf.edu).
 
-#### General Information
+## General Information
 
 When running the program, it will ask you to select a configuration file in the settings folder to
 use for the simulation. An example configuration file named default_settings.yaml is already in the settings
@@ -21,7 +21,11 @@ holding down left control and the left mouse button and dragging it around. The 
 one player runs out of pieces. A log of the game will be created in the logs folder, which records
 the piece templates, board, and the pieces at each turn in the game.
 
-#### Controls for Main Program
+### Warning!
+Do not alter default_settings.yaml, unless you are sure that the file is still in a valid format. If the selected
+configuration file is not valid, the main program defaults to using default_settings.yaml.
+
+## Controls for Main Program
 
 Use the left mouse button to move pieces and use the right mouse button to attack with pieces.
 
@@ -41,7 +45,7 @@ To zoom in and out the board, press left control and use the scroll. Alternative
 and S keys to zoom in and out. To move the board itself, hold down left control and the left mouse button,
 and move the board to its desired location. To center and reset the board's zoom, press C.
 
-#### Instructions for the Configuration File Creator.
+## Instructions for the Configuration File Creator.
 
 Included with the main program is a configuration file creator, `config_creator.py`. The configuration 
 file creator works in three steps: piece template creation, board creation, and piece placement. 
@@ -71,7 +75,7 @@ as an example file.
 
 The configuration files are written in the YAML format, so they can be manually edited in a text editor.
 
-#### Installation instructions for required packages and running the program
+## Installation instructions for required packages and running the program
 
 ```bash
 git clone https://github.com/NicholasCG/HexBattleSimulator
@@ -81,7 +85,7 @@ cd main
 python __main__.py
 ```
 
-#### Game Functions
+### Game Functions
 
 - `GameBoard()`: Creates a new game, based on the settings from settings.yaml/default_settings.yaml.
 - `get_valid_moves(hex)`: Gives the possible moves for the piece that is at the given tile.
@@ -90,10 +94,6 @@ python __main__.py
 - `attack_piece(attacker, target)`: `Attacker` attacks the piece at `target` if `target` is an enemy piece.
 - `end_turn()`: Ends the current turn, resets record of moved pieces, and changes to the next player's turn. If all of a player's pieces are removed from the board, the function returns the winning opponent's number.
 
-### Warning!
-Do not alter default_settings.yaml, unless you are sure that the file is still in a valid format. If the selected
-configuration file is not valid, the main program defaults to using default_settings.yaml.
-
-## License
+### License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
