@@ -33,7 +33,7 @@ def v2_angle(vector1, vector2):
     elif val == -1.0:
         return 3
     else:
-        print("Error! Unusual directions given: ")
+        print("Warning! Unusual directions given: ")
         print(vector1, vector2)
         return int(0.954929658551372 * np.arccos(val))
 
