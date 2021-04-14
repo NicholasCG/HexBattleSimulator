@@ -405,6 +405,13 @@ class VisualHexMap:
 
                 if self.turn_button.isOver(pos):
                     self.win_state = self.board.end_turn()
+                    self.clicked_hex = None
+                    self.axial_moves = None
+                    self.valid_moves = None
+                    self.axial_clicked = None
+                    self.temp_axial = None
+                    self.selected_movement_directions = []
+                    self.step = 1
 
             # Alternate direction rotation if the scroll wheel is not working
             if event.type == pg.KEYUP:
