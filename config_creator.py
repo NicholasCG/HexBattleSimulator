@@ -348,6 +348,10 @@ class ExampleHexMap:
                         self.max_coord.increment()
                     elif event.key == pg.K_LEFT:
                         self.max_coord.decrement()
+                    elif event.key == pg.K_a:
+                        self.selection.decrement()
+                    elif event.key == pg.K_d:
+                        self.selection.increment()
                 elif self.step == 2:
                     if event.key == pg.K_RIGHT:
                         self.piece_selection.increment()
