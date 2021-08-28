@@ -2,6 +2,7 @@ import numpy as np
 import hexy as hx
 from piece import Piece, PieceTemplate, EmptyTemplate, EmptyPiece
 import yaml
+import export
 from queue import Queue
 from os import path
 
@@ -32,7 +33,7 @@ def v2_angle(vector1, vector2):
     elif val == -1.0:
         return 3
     else:
-        print("something's wrong")
+        print("Warning! Unusual directions given: ")
         print(vector1, vector2)
         return int(0.954929658551372 * np.arccos(val))
 
@@ -132,6 +133,9 @@ class GameBoard(hx.HexMap):
                 index += 1
 
         self[self.axial_coords] = self.game_hexes
+
+        self.export_loc = export.init_log(self)
+        export.parse_turn(self, self.export_loc)
 
     def attack_piece(self, attacker, target):
         # Check to make sure the coordinates are not the same.
@@ -333,9 +337,6 @@ class GameBoard(hx.HexMap):
                 index += 1
                 found = False
                 
-                if np.array_equal(self[hx.cube_to_axial(next_nb)], []):
-                    continue
-                
                 for i in moves[::-1]:
                     if np.array_equal(next_nb[0][::2], i[0:2]):
                         found = True
@@ -354,6 +355,7 @@ class GameBoard(hx.HexMap):
     # Resets temporary variables, changes the current player, and checks to see 
     # if the game has ended.
     def end_turn(self):
+        export.parse_turn(self, self.export_loc)
         self.moved_pieces = []
         self.fired_pieces = []
 

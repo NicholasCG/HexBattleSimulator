@@ -212,7 +212,7 @@ class ExampleHexMap:
     def __init__(self, num_pieces, hex_radius=20, caption="Config File Creator"):
 
         root = Tk()
-        size = (root.winfo_screenheight(), root.winfo_screenheight())
+        size = (root.winfo_screenheight() - 50, root.winfo_screenheight() - 50)
         root.destroy()
         
         self.caption = caption              # Controls window caption
@@ -348,11 +348,19 @@ class ExampleHexMap:
                         self.max_coord.increment()
                     elif event.key == pg.K_LEFT:
                         self.max_coord.decrement()
+                    elif event.key == pg.K_a:
+                        self.selection.decrement()
+                    elif event.key == pg.K_d:
+                        self.selection.increment()
                 elif self.step == 2:
                     if event.key == pg.K_RIGHT:
                         self.piece_selection.increment()
                     elif event.key == pg.K_LEFT:
                         self.piece_selection.decrement()
+                    elif event.key == pg.K_a:
+                        self.direction_selection.decrement()
+                    elif event.key == pg.K_d:
+                        self.direction_selection.increment()
 
             if event.type == pg.KEYDOWN:
                 if event.key == pg.K_RETURN:

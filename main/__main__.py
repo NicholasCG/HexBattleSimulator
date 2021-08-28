@@ -1,7 +1,6 @@
 # This is needed becuase pygame's init() calls for an audio driver,
 # which seemed to default to ALSA, which was causing an underrun error.
 import os
-
 os.environ['SDL_AUDIODRIVER'] = 'dsp'
 
 import hexy as hx
@@ -171,6 +170,7 @@ class VisualHexMap:
         #self.center = (0 + hex_radius, 0 + hex_radius)
         self.center = (self.size / 2).astype(np.int32)
         self.hex_radius = int(hex_radius * scale)      # Radius of individual hexagons
+        self.original_radius = self.hex_radius
         self.caption = caption
         self.board = hxgame.GameBoard(dirname)
         
@@ -282,6 +282,8 @@ class VisualHexMap:
 
             if keys[pg.K_c]:
                 self.test_center = (self.center[0], self.center[1] - int(100 * scale))
+                self.hex_radius = self.original_radius
+                self.regenerate_size_objects()
                 
             if event.type == pg.MOUSEBUTTONUP: # Attacking or moving
 
@@ -403,6 +405,28 @@ class VisualHexMap:
 
                 if self.turn_button.isOver(pos):
                     self.win_state = self.board.end_turn()
+                    self.clicked_hex = None
+                    self.axial_moves = None
+                    self.valid_moves = None
+                    self.axial_clicked = None
+                    self.temp_axial = None
+                    self.selected_movement_directions = []
+                    self.step = 1
+
+            # Alternate direction rotation if the scroll wheel is not working
+            if event.type == pg.KEYUP:
+                if event.key == pg.K_a:
+                    self.select_direction.decrement()
+                elif event.key == pg.K_d:
+                    self.select_direction.increment()
+                elif event.key == pg.K_w:
+                        self.hex_radius += 2
+                        self.regenerate_size_objects()
+                elif event.key == pg.K_s:
+                    self.hex_radius -= 2
+                    if self.hex_radius < 1:
+                        self.hex_radius = 1
+                    self.regenerate_size_objects()
 
             if event.type == pg.MOUSEMOTION:
                 if event.buttons == (1, 0, 0) and keys[pg.K_LCTRL]:
