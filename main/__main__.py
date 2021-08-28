@@ -23,7 +23,7 @@ TESTING = 0
 
 root = Tk()
 root.withdraw()
-size = (root.winfo_screenheight() - 50, root.winfo_screenheight() - 50)
+size = (int(root.winfo_screenheight() * .9), int(root.winfo_screenheight() * .9))
 root.destroy()
 scale = size[0] / 1000
 
